@@ -30,8 +30,8 @@ export default function LoginForm() {
       return
     }
 
-    // ✅ login OK → redirigir manual
-    router.push("/dashboard")
+    // ✅ FORZAR recarga + redirecció
+    window.location.href = "/dashboard"
   }
 
   return (
