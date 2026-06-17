@@ -2,9 +2,12 @@
 
 import { useState, FormEvent } from "react"
 import { signIn } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 
 export default function LoginForm() {
+  const router = useRouter()
+
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -15,17 +18,20 @@ export default function LoginForm() {
     setError("")
     setIsLoading(true)
 
-    try {
-      await signIn("credentials", {
-        email,
-        password,
-        callbackUrl: "/dashboard",
-      })
-    } catch (error) {
-      console.error("Login error:", error)
-      setError("An error occurred. Please try again.")
+    const result = await signIn("credentials", {
+      email,
+      password,
+      redirect: false,
+    })
+
+    if (result?.error) {
+      setError("Invalid email or password")
       setIsLoading(false)
+      return
     }
+
+    // ✅ login OK → redirigir manual
+    router.push("/dashboard")
   }
 
   return (
@@ -41,54 +47,37 @@ export default function LoginForm() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Email address
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-              placeholder="you@example.com"
-              disabled={isLoading}
-              required
-            />
-          </div>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Email"
+            disabled={isLoading}
+            className="w-full border px-3 py-2 rounded"
+          />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-              placeholder="••••••••"
-              disabled={isLoading}
-              required
-            />
-          </div>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password"
+            disabled={isLoading}
+            className="w-full border px-3 py-2 rounded"
+          />
 
-          {error && (
-            <p className="text-sm text-red-600">{error}</p>
-          )}
+          {error && <p className="text-red-600">{error}</p>}
 
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-blue-600 text-white py-2 rounded-md"
+            className="w-full bg-blue-600 text-white py-2 rounded"
           >
             {isLoading ? "Signing in..." : "Sign in"}
           </button>
         </form>
 
         <p className="text-center text-sm">
-          Don't have an account?{" "}
-          <Link href="/register" className="text-blue-600">
-            Sign up
-          </Link>
+          Don't have an account? <Link href="/register">Sign up</Link>
         </p>
       </div>
     </div>
