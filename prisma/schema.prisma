@@ -1,0 +1,310 @@
+// schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// AUTENTICACIÓN Y USUARIOS
+// ============================================
+
+enum UserRole {
+  ADMIN
+  PROFESOR
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String    // Hashed password
+  role          UserRole  @default(PROFESOR)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  accounts      Account[]
+  sessions      Session[]
+  schools       School[]  // Un profesor puede tener múltiples escuelas
+  
+  // Relations for tracking created records
+  studentsCreated   Student[]    @relation("CreatedByUser")
+  schedulesCreated  Schedule[]   @relation("CreatedByUser")
+  attendancesCreated Attendance[] @relation("CreatedByUser")
+  paymentsCreated   Payment[]    @relation("CreatedByUser")
+  
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================
+// GESTIÓN DE ESCUELAS
+// ============================================
+
+model School {
+  id          String   @id @default(cuid())
+  name        String
+  address     String?
+  phone       String?
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  
+  students       Student[]
+  schedules      Schedule[]
+  payments       Payment[]
+  monthlyFees    MonthlyFee[]
+  frequencyRates FrequencyRate[]
+  
+  @@map("schools")
+}
+
+// ============================================
+// GESTIÓN DE ALUMNOS
+// ============================================
+
+model Student {
+  id          String   @id @default(cuid())
+  firstName   String
+  lastName    String
+  email       String?
+  phone       String?
+  birthDate   DateTime?
+  belt        String?  // Cinturón actual
+  address     String?
+  emergencyContact String?
+  emergencyPhone   String?
+  notes       String?  @db.Text
+  isActive    Boolean  @default(true)
+  inactiveDate DateTime? // Fecha en que el alumno se marcó como inactivo
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  
+  createdById String?
+  createdBy   User?    @relation("CreatedByUser", fields: [createdById], references: [id], onDelete: SetNull)
+  
+  enrollments StudentSchedule[]
+  attendances Attendance[]
+  payments    Payment[]
+  
+  @@index([schoolId])
+  @@index([isActive])
+  @@index([createdById])
+  @@map("students")
+}
+
+// ============================================
+// GESTIÓN DE HORARIOS Y CLASES
+// ============================================
+
+model Schedule {
+  id          String   @id @default(cuid())
+  name        String
+  dayOfWeek   Int      // 0=Domingo, 1=Lunes, etc. (mantener para compatibilidad - día principal)
+  daysOfWeek  Int[]    // Array de días: [1,3] = Lunes y Miércoles, [2,4] = Martes y Jueves
+  startTime   String   // Formato "HH:mm"
+  endTime     String
+  capacity    Int?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  
+  createdById String?
+  createdBy   User?    @relation("CreatedByUser", fields: [createdById], references: [id], onDelete: SetNull)
+  
+  enrollments StudentSchedule[]
+  attendances Attendance[]
+  
+  @@index([schoolId])
+  @@index([dayOfWeek])
+  @@index([createdById])
+  @@map("schedules")
+}
+
+model StudentSchedule {
+  id                String   @id @default(cuid())
+  enrolledAt        DateTime @default(now())
+  isActive          Boolean  @default(true)
+  
+  // Frecuencia de asistencia y precio personalizado
+  weeklyFrequency   Int      @default(1) // Cuántas veces por semana asiste (1, 2, 3, etc.)
+  monthlyFee        Decimal? @db.Decimal(10, 2) // Cuota mensual personalizada (opcional)
+  notes             String?  @db.Text // Notas sobre el plan del alumno
+  
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  scheduleId  String
+  schedule    Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  
+  frequencyHistory FrequencyHistory[]
+  
+  @@unique([studentId, scheduleId])
+  @@index([studentId])
+  @@index([scheduleId])
+  @@map("student_schedules")
+}
+
+// ============================================
+// HISTORIAL DE CAMBIOS DE FRECUENCIA
+// ============================================
+
+model FrequencyHistory {
+  id                String          @id @default(cuid())
+  studentScheduleId String
+  studentSchedule   StudentSchedule @relation(fields: [studentScheduleId], references: [id], onDelete: Cascade)
+  weeklyFrequency   Int             // 1, 2, 3, 4, 5, 6, 7
+  monthlyFee        Decimal?        @db.Decimal(10, 2) // Cuota personalizada (opcional)
+  effectiveFrom     DateTime        // Fecha desde la cual aplica esta frecuencia
+  effectiveTo       DateTime?       // Fecha hasta la cual aplicó (null = actual)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([studentScheduleId, effectiveFrom])
+  @@index([studentScheduleId, effectiveTo])
+  @@map("frequency_history")
+}
+
+// ============================================
+// REGISTRO DE ASISTENCIAS
+// ============================================
+
+model Attendance {
+  id          String   @id @default(cuid())
+  date        DateTime
+  wasPresent  Boolean  @default(true)
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  scheduleId  String
+  schedule    Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  
+  createdById String?
+  createdBy   User?    @relation("CreatedByUser", fields: [createdById], references: [id], onDelete: SetNull)
+  
+  @@unique([studentId, scheduleId, date])
+  @@index([studentId])
+  @@index([scheduleId])
+  @@index([date])
+  @@index([createdById])
+  @@map("attendances")
+}
+
+// ============================================
+// SISTEMA DE PAGOS
+// ============================================
+
+model MonthlyFee {
+  id          String   @id @default(cuid())
+  amount      Decimal  @db.Decimal(10, 2)
+  month       Int      // 1-12
+  year        Int
+  description String?
+  createdAt   DateTime @default(now())
+  
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  
+  @@unique([schoolId, month, year])
+  @@index([schoolId])
+  @@map("monthly_fees")
+}
+
+model FrequencyRate {
+  id              String   @id @default(cuid())
+  amount          Decimal  @db.Decimal(10, 2)
+  weeklyFrequency Int      // 1, 2, 3, 4, 5, 6, 7 - Cuántas veces por semana
+  month           Int      // 1-12
+  year            Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  schoolId        String
+  school          School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  
+  @@unique([schoolId, year, month, weeklyFrequency])
+  @@index([schoolId, year, month])
+  @@map("frequency_rates")
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  amount      Decimal  @db.Decimal(10, 2)
+  month       Int
+  year        Int
+  paymentDate DateTime @default(now())
+  paymentMethod String?
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  
+  createdById String?
+  createdBy   User?    @relation("CreatedByUser", fields: [createdById], references: [id], onDelete: SetNull)
+  
+  @@index([studentId])
+  @@index([schoolId])
+  @@index([month, year])
+  @@index([createdById])
+  @@map("payments")
+}
