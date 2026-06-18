@@ -51,7 +51,7 @@ export function StudentEnrollment({
       }
       const allStudents = await studentsResponse.json()
 
-      // Get enrolled students
+      // Get enrolled students in THIS schedule
       const enrolledResponse = await fetch(`/api/schedules/${scheduleId}/students`)
       if (!enrolledResponse.ok) {
         throw new Error("Error al cargar los alumnos inscritos")
@@ -59,7 +59,9 @@ export function StudentEnrollment({
       const enrolledData = await enrolledResponse.json()
       const enrolledIds = new Set(enrolledData.map((e: any) => e.student.id))
 
-      // Filter out already enrolled students and inactive students
+      // Filter: only show active students NOT enrolled in THIS schedule
+      // Students can be enrolled in multiple schedules, so we only filter out
+      // those already in THIS specific schedule
       const available = allStudents.filter(
         (student: Student) => !enrolledIds.has(student.id) && student.isActive
       )

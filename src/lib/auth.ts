@@ -4,6 +4,8 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
 import { UserRole } from "./rbac"
+import { rateLimit, RATE_LIMITS } from "./rate-limit"
+import { logLoginSuccess, logLoginFailed, SecurityEventType, securityLogger } from "./security-logger"
 
 // Extended session type to include userId, schoolId, and role
 declare module "next-auth" {
@@ -44,7 +46,7 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         console.log('🔐 [AUTH] Starting authorization...');
         console.log('📧 [AUTH] Email:', credentials?.email);
         
@@ -52,6 +54,30 @@ export const authOptions: NextAuthOptions = {
           console.log('❌ [AUTH] Missing credentials');
           throw new Error("Invalid credentials")
         }
+
+        // Rate limiting por email
+        const rateLimitResult = rateLimit(
+          `login:${credentials.email}`,
+          RATE_LIMITS.LOGIN
+        )
+
+        if (!rateLimitResult.success) {
+          const resetTime = new Date(rateLimitResult.reset)
+          console.log('🚫 [AUTH] Rate limit exceeded for:', credentials.email);
+          console.log('🕐 [AUTH] Reset time:', resetTime.toISOString());
+          
+          // Log rate limit event
+          securityLogger.log({
+            type: SecurityEventType.LOGIN_RATE_LIMITED,
+            email: credentials.email,
+            severity: 'high',
+            details: { resetTime: resetTime.toISOString() }
+          })
+          
+          throw new Error(`Too many login attempts. Please try again after ${resetTime.toLocaleTimeString()}`)
+        }
+
+        console.log('✅ [AUTH] Rate limit check passed. Remaining attempts:', rateLimitResult.remaining);
 
         console.log('🔍 [AUTH] Looking up user in database...');
         const user = await prisma.user.findUnique({
@@ -85,6 +111,7 @@ export const authOptions: NextAuthOptions = {
 
         if (!user || !user?.password) {
           console.log('❌ [AUTH] User not found or no password');
+          logLoginFailed(credentials.email, undefined, 'User not found')
           throw new Error("Invalid credentials")
         }
 
@@ -98,11 +125,15 @@ export const authOptions: NextAuthOptions = {
 
         if (!isCorrectPassword) {
           console.log('❌ [AUTH] Password mismatch');
+          logLoginFailed(credentials.email, undefined, 'Invalid password')
           throw new Error("Invalid credentials")
         }
 
         console.log('🎉 [AUTH] Authentication successful!');
         console.log('👤 [AUTH] User role:', user.role);
+        
+        // Log successful login
+        logLoginSuccess(user.id, user.email)
 
         // Return user with schoolId from their first school and role
         return {
@@ -160,7 +191,27 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
     updateAge: 24 * 60 * 60, // 24 hours
   },
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === 'production'
+        ? '__Secure-next-auth.session-token'
+        : 'next-auth.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        domain: process.env.NODE_ENV === 'production'
+          ? process.env.NEXTAUTH_URL?.replace(/https?:\/\//, '').split('/')[0]
+          : undefined
+      }
+    }
+  },
   secret: process.env.NEXTAUTH_SECRET,
+  // Ensure proper URL configuration for production
+  ...(process.env.NEXTAUTH_URL && {
+    url: process.env.NEXTAUTH_URL
+  }),
 }
 
 // Helper function to get server session

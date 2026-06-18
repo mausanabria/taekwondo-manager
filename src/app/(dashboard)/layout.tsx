@@ -1,7 +1,7 @@
 import { getServerSession } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { SessionProvider } from "@/components/SessionProvider"
-import DashboardNav from "@/components/DashboardNav"
+import Sidebar from "@/components/Sidebar"
 
 export default async function DashboardLayout({
   children,
@@ -17,21 +17,32 @@ export default async function DashboardLayout({
   return (
     <SessionProvider session={session}>
       <div className="min-h-screen bg-gray-50">
-        <DashboardNav />
-        
-        {/* Main Content */}
-        <main className="container mx-auto px-4 py-6">
-          {children}
-        </main>
+        <div className="flex h-screen">
+          {/* Sidebar */}
+          <Sidebar />
+          
+          {/* Main Content Area */}
+          <div className="flex-1 flex flex-col overflow-hidden lg:ml-0">
+            {/* Top padding for mobile menu button */}
+            <div className="lg:hidden h-16" />
+            
+            {/* Main Content */}
+            <main className="flex-1 overflow-y-auto">
+              <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+                {children}
+              </div>
+            </main>
 
-        {/* Footer */}
-        <footer className="bg-white border-t border-gray-200 mt-auto">
-          <div className="container mx-auto px-4 py-4">
-            <p className="text-center text-sm text-gray-500">
-              © {new Date().getFullYear()} Taekwondo Manager. All rights reserved.
-            </p>
+            {/* Footer */}
+            <footer className="bg-white border-t border-gray-200 py-4 mt-auto">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <p className="text-center text-sm text-gray-500">
+                  © {new Date().getFullYear()} Taekwondo Manager. All rights reserved.
+                </p>
+              </div>
+            </footer>
           </div>
-        </footer>
+        </div>
       </div>
     </SessionProvider>
   )

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { z } from "zod"
+import { rateLimit, RATE_LIMITS, getIdentifier } from "@/lib/rate-limit"
 
 // Validation schema
 const registerSchema = z.object({
@@ -16,6 +17,24 @@ const registerSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    // Rate limiting por IP
+    const identifier = getIdentifier(request)
+    const rateLimitResult = rateLimit(
+      `register:${identifier}`,
+      RATE_LIMITS.REGISTER
+    )
+
+    if (!rateLimitResult.success) {
+      const resetTime = new Date(rateLimitResult.reset)
+      return NextResponse.json(
+        {
+          error: `Too many registration attempts. Please try again after ${resetTime.toLocaleTimeString()}`,
+          resetTime: rateLimitResult.reset
+        },
+        { status: 429 }
+      )
+    }
+
     const body = await request.json()
     
     // Validate input

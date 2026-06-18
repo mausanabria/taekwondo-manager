@@ -78,6 +78,10 @@ Las escuelas de artes marciales tradicionalmente manejan su administración con 
 - ✅ Sesiones JWT
 - ✅ Protección de rutas
 - ✅ Multi-escuela (un profesor puede tener varias escuelas)
+- ✅ **Rate Limiting** para prevenir ataques de fuerza bruta
+- ✅ **Security Headers** (HSTS, X-Frame-Options, CSP, etc.)
+- ✅ **Security Logging** para auditoría y monitoreo
+- ✅ **Backups automáticos** de base de datos
 
 ---
 
@@ -264,6 +268,7 @@ npx prisma migrate reset  # Resetear base de datos (¡cuidado!)
 | [👤 Guía de Usuario](docs/USER_GUIDE.md) | Cómo usar la aplicación (para usuarios finales) |
 | [🔧 Documentación Técnica](docs/TECHNICAL.md) | Arquitectura y detalles técnicos |
 | [🚀 Guía de Despliegue](docs/DEPLOYMENT.md) | Cómo desplegar en producción |
+| [🔒 Guía de Seguridad](docs/SECURITY.md) | **Medidas de seguridad y mejores prácticas** |
 | [💻 Guía de Desarrollo](docs/DEVELOPMENT.md) | Cómo contribuir y desarrollar |
 | [❓ FAQ](docs/FAQ.md) | Preguntas frecuentes y solución de problemas |
 | [📝 Changelog](CHANGELOG.md) | Historial de versiones y cambios |

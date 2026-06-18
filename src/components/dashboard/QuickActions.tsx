@@ -25,8 +25,8 @@ export function QuickActions() {
       color: "bg-yellow-500 hover:bg-yellow-600"
     },
     {
-      title: "Ver Reportes",
-      description: "Estadísticas y reportes",
+      title: "Reportes y Valores",
+      description: "Estadísticas y configuración",
       icon: BarChart3,
       href: "/payments/fees",
       color: "bg-purple-500 hover:bg-purple-600"
