@@ -116,6 +116,21 @@ export async function GET(
 
     const generalFeeAmount = generalFee ? Number(generalFee.amount) : 0
 
+    // Get frequency rates for current month
+    const frequencyRates = await prisma.frequencyRate.findMany({
+      where: {
+        schoolId: school.id,
+        year: currentYear,
+        month: currentMonth
+      }
+    })
+
+    // Create a map for quick lookup: weeklyFrequency -> amount
+    const frequencyRateMap = new Map<number, number>()
+    frequencyRates.forEach((rate: any) => {
+      frequencyRateMap.set(rate.weeklyFrequency, Number(rate.amount))
+    })
+
     // Calculate total monthly fee and build breakdown
     let totalMonthlyFee = 0
     const breakdown = enrollments.map((enrollment) => {
@@ -139,23 +154,35 @@ export async function GET(
         if (currentHistory) {
           effectiveFrequency = currentHistory.weeklyFrequency
           
-          // Use custom fee from history if available, otherwise use enrollment fee or general fee
-          feeAmount = currentHistory.monthlyFee
-            ? Number(currentHistory.monthlyFee)
-            : enrollment.monthlyFee
-              ? Number(enrollment.monthlyFee)
-              : generalFeeAmount
+          // Priority: 1) Custom fee from history, 2) Custom fee from enrollment, 3) Frequency rate, 4) General fee
+          if (currentHistory.monthlyFee) {
+            feeAmount = Number(currentHistory.monthlyFee)
+          } else if (enrollment.monthlyFee) {
+            feeAmount = Number(enrollment.monthlyFee)
+          } else if (frequencyRateMap.has(effectiveFrequency)) {
+            feeAmount = frequencyRateMap.get(effectiveFrequency)!
+          } else {
+            feeAmount = generalFeeAmount
+          }
         } else {
           // No history for current month, use current enrollment values
-          feeAmount = enrollment.monthlyFee
-            ? Number(enrollment.monthlyFee)
-            : generalFeeAmount
+          if (enrollment.monthlyFee) {
+            feeAmount = Number(enrollment.monthlyFee)
+          } else if (frequencyRateMap.has(effectiveFrequency)) {
+            feeAmount = frequencyRateMap.get(effectiveFrequency)!
+          } else {
+            feeAmount = generalFeeAmount
+          }
         }
       } else {
         // No history, use current enrollment values
-        feeAmount = enrollment.monthlyFee
-          ? Number(enrollment.monthlyFee)
-          : generalFeeAmount
+        if (enrollment.monthlyFee) {
+          feeAmount = Number(enrollment.monthlyFee)
+        } else if (frequencyRateMap.has(effectiveFrequency)) {
+          feeAmount = frequencyRateMap.get(effectiveFrequency)!
+        } else {
+          feeAmount = generalFeeAmount
+        }
       }
 
       totalMonthlyFee += feeAmount
