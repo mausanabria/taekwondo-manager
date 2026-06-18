@@ -369,6 +369,9 @@ export const paymentService = {
       const monthDate = new Date(year, month - 1, 15) // Use middle of month for comparison
 
       for (const enrollment of enrollments) {
+        let weeklyFrequency = enrollment.weeklyFrequency
+        let customFee: number | null = enrollment.monthlyFee ? Number(enrollment.monthlyFee) : null
+
         // Find the frequency history that was active during this month
         const historicalFrequency = enrollment.frequencyHistory.find(history => {
           const from = new Date(history.effectiveFrom)
@@ -377,16 +380,21 @@ export const paymentService = {
           return monthDate >= from && monthDate <= to
         })
 
-        // If no historical frequency found, skip this enrollment for this month
-        if (!historicalFrequency) continue
+        // If historical frequency found, use it; otherwise use current enrollment values
+        if (historicalFrequency) {
+          weeklyFrequency = historicalFrequency.weeklyFrequency
+          if (historicalFrequency.monthlyFee) {
+            customFee = Number(historicalFrequency.monthlyFee)
+          }
+        }
 
-        // Priority 1: Custom fee from historical record
-        if (historicalFrequency.monthlyFee) {
-          totalFee += Number(historicalFrequency.monthlyFee)
+        // Priority 1: Custom fee (from history or enrollment)
+        if (customFee) {
+          totalFee += customFee
           hasAnyCustomFee = true
         } else {
-          // Priority 2: Frequency rate based on historical frequency
-          const frequencyKey = `${year}-${month}-${historicalFrequency.weeklyFrequency}`
+          // Priority 2: Frequency rate based on weekly frequency
+          const frequencyKey = `${year}-${month}-${weeklyFrequency}`
           const frequencyRate = frequencyRateMap.get(frequencyKey)
           
           if (frequencyRate) {
