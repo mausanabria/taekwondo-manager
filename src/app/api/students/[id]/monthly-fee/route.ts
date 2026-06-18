@@ -54,7 +54,12 @@ export async function GET(
       )
     }
 
-    // Get student's active enrollments with schedule details
+    // Get the general monthly fee for the current month
+    const now = new Date()
+    const currentYear = now.getFullYear()
+    const currentMonth = now.getMonth() + 1
+
+    // Get student's active enrollments with schedule details and frequency history
     const enrollments = await prisma.studentSchedule.findMany({
       where: {
         studentId,
@@ -72,14 +77,34 @@ export async function GET(
             startTime: true,
             endTime: true
           }
+        },
+        frequencyHistory: {
+          where: {
+            OR: [
+              {
+                // History that started before or during current month
+                effectiveFrom: {
+                  lte: new Date(currentYear, currentMonth, 0) // End of current month
+                },
+                effectiveTo: null // Still active
+              },
+              {
+                // History that was active during current month
+                effectiveFrom: {
+                  lte: new Date(currentYear, currentMonth, 0)
+                },
+                effectiveTo: {
+                  gte: new Date(currentYear, currentMonth - 1, 1) // Start of current month
+                }
+              }
+            ]
+          },
+          orderBy: {
+            effectiveFrom: 'desc'
+          }
         }
       }
     })
-
-    // Get the general monthly fee for the current month
-    const now = new Date()
-    const currentYear = now.getFullYear()
-    const currentMonth = now.getMonth() + 1
 
     const generalFee = await prisma.monthlyFee.findFirst({
       where: {
@@ -94,9 +119,44 @@ export async function GET(
     // Calculate total monthly fee and build breakdown
     let totalMonthlyFee = 0
     const breakdown = enrollments.map((enrollment) => {
-      const feeAmount = enrollment.monthlyFee 
-        ? Number(enrollment.monthlyFee) 
-        : generalFeeAmount
+      let feeAmount: number
+      let effectiveFrequency = enrollment.weeklyFrequency
+      
+      // Check if there's frequency history for current month
+      if (enrollment.frequencyHistory && enrollment.frequencyHistory.length > 0) {
+        const monthStart = new Date(currentYear, currentMonth - 1, 1)
+        const monthEnd = new Date(currentYear, currentMonth, 0, 23, 59, 59)
+        
+        // Find the most recent history entry that applies to current month
+        const currentHistory = enrollment.frequencyHistory.find(h => {
+          const effectiveFrom = new Date(h.effectiveFrom)
+          const effectiveTo = h.effectiveTo ? new Date(h.effectiveTo) : null
+          
+          // Check if this history entry overlaps with current month
+          return effectiveFrom <= monthEnd && (!effectiveTo || effectiveTo >= monthStart)
+        })
+        
+        if (currentHistory) {
+          effectiveFrequency = currentHistory.weeklyFrequency
+          
+          // Use custom fee from history if available, otherwise use enrollment fee or general fee
+          feeAmount = currentHistory.monthlyFee
+            ? Number(currentHistory.monthlyFee)
+            : enrollment.monthlyFee
+              ? Number(enrollment.monthlyFee)
+              : generalFeeAmount
+        } else {
+          // No history for current month, use current enrollment values
+          feeAmount = enrollment.monthlyFee
+            ? Number(enrollment.monthlyFee)
+            : generalFeeAmount
+        }
+      } else {
+        // No history, use current enrollment values
+        feeAmount = enrollment.monthlyFee
+          ? Number(enrollment.monthlyFee)
+          : generalFeeAmount
+      }
 
       totalMonthlyFee += feeAmount
 
@@ -112,9 +172,10 @@ export async function GET(
         dayOfWeek: enrollment.schedule.dayOfWeek,
         startTime: enrollment.schedule.startTime,
         endTime: enrollment.schedule.endTime,
-        weeklyFrequency: enrollment.weeklyFrequency,
+        weeklyFrequency: effectiveFrequency,
         monthlyFee: feeAmount,
-        isCustom: enrollment.monthlyFee !== null
+        isCustom: enrollment.monthlyFee !== null,
+        hasFrequencyHistory: enrollment.frequencyHistory && enrollment.frequencyHistory.length > 0
       }
     })
 
