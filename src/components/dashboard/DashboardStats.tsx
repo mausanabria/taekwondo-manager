@@ -1,7 +1,7 @@
 ﻿"use client"
 
 import { DashboardStats as Stats } from "@/services/dashboardService"
-import { Users, Calendar, TrendingUp, DollarSign, CheckCircle, AlertCircle } from "lucide-react"
+import { Users, TrendingUp, DollarSign, Cake, AlertCircle, CheckCircle } from "lucide-react"
 
 interface DashboardStatsProps {
   stats: Stats
@@ -12,18 +12,10 @@ export function DashboardStats({ stats }: DashboardStatsProps) {
     {
       title: "Total Alumnos",
       value: stats.totalStudents,
-      subtitle: `${stats.activeStudents} activos, ${stats.inactiveStudents} inactivos`,
+      subtitle: `${stats.activeStudents} activos • ${stats.studentsAttendedThisMonth} asistieron este mes`,
       icon: Users,
       color: "bg-blue-500",
       textColor: "text-blue-600"
-    },
-    {
-      title: "Horarios Activos",
-      value: stats.totalSchedules,
-      subtitle: "Clases configuradas",
-      icon: Calendar,
-      color: "bg-purple-500",
-      textColor: "text-purple-600"
     },
     {
       title: "Asistencia del Mes",
@@ -44,7 +36,7 @@ export function DashboardStats({ stats }: DashboardStatsProps) {
     {
       title: "Alumnos al Día",
       value: stats.studentsUpToDate,
-      subtitle: `${stats.totalStudents > 0 ? Math.round((stats.studentsUpToDate / stats.activeStudents) * 100) : 0}% sin deuda`,
+      subtitle: `${stats.activeStudents > 0 ? Math.round((stats.studentsUpToDate / stats.activeStudents) * 100) : 0}% sin deuda`,
       icon: CheckCircle,
       color: "bg-green-500",
       textColor: "text-green-600"
@@ -56,6 +48,16 @@ export function DashboardStats({ stats }: DashboardStatsProps) {
       icon: AlertCircle,
       color: "bg-red-500",
       textColor: "text-red-600"
+    },
+    {
+      title: "Próximo Cumpleaños",
+      value: stats.nextBirthday ? stats.nextBirthday.studentName : "N/A",
+      subtitle: stats.nextBirthday
+        ? `En ${stats.nextBirthday.daysUntil} día${stats.nextBirthday.daysUntil !== 1 ? 's' : ''}`
+        : "No hay cumpleaños próximos",
+      icon: Cake,
+      color: "bg-pink-500",
+      textColor: "text-pink-600"
     }
   ]
 
@@ -73,7 +75,7 @@ export function DashboardStats({ stats }: DashboardStatsProps) {
                 <p className="text-sm font-medium text-gray-600 mb-1">
                   {card.title}
                 </p>
-                <p className={`text-3xl font-bold ${card.textColor} mb-1`}>
+                <p className={`${card.title === "Próximo Cumpleaños" ? "text-lg" : "text-3xl"} font-bold ${card.textColor} mb-1 ${card.title === "Próximo Cumpleaños" ? "truncate" : ""}`}>
                   {card.value}
                 </p>
                 <p className="text-xs text-gray-500">

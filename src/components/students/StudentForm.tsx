@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Student } from "@/types"
 import { Loader2 } from "lucide-react"
+import { BELT_LEVELS } from "@/lib/belt-utils"
 
 interface StudentFormProps {
   student?: Student | null
@@ -26,12 +27,7 @@ export interface StudentFormData {
 
 const BELT_OPTIONS = [
   { value: "", label: "Seleccionar cinturón" },
-  { value: "blanco", label: "Blanco" },
-  { value: "amarillo", label: "Amarillo" },
-  { value: "verde", label: "Verde" },
-  { value: "azul", label: "Azul" },
-  { value: "rojo", label: "Rojo" },
-  { value: "negro", label: "Negro" }
+  ...BELT_LEVELS
 ]
 
 export function StudentForm({ student, onSubmit, onCancel }: StudentFormProps) {

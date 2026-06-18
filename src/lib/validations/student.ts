@@ -1,7 +1,23 @@
 import { z } from "zod"
 
-// Belt options
-export const BELT_VALUES = ["blanco", "amarillo", "verde", "azul", "rojo", "negro"] as const
+// Belt options - Complete list with intermediate levels (puntas)
+export const BELT_VALUES = [
+  "blanco",
+  "blanco-amarillo",
+  "amarillo",
+  "amarillo-verde",
+  "verde",
+  "verde-azul",
+  "azul",
+  "azul-rojo",
+  "rojo",
+  "rojo-negro",
+  "negro-1",
+  "negro-2",
+  "negro-3",
+  "negro-4",
+  "negro-5"
+] as const
 
 // Validation schema for creating a student
 export const createStudentSchema = z.object({

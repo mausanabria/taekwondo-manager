@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Student } from "@/types"
 import { StudentStats } from "@/services/studentService"
 import { StudentSchedules } from "@/components/students/StudentSchedules"
+import { getBeltLabel, getBeltColorClasses } from "@/lib/belt-utils"
 import {
   ArrowLeft,
   Pencil,
@@ -21,6 +22,17 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useParams } from "next/navigation"
+
+interface MonthlyStats {
+  month: string
+  attendanceCount: number
+  totalPaid: number
+  monthlyFee: number
+  debt: number
+  paymentStatus: 'paid' | 'debt' | 'no_attendance'
+  paymentStatusColor: 'green' | 'red' | 'gray'
+  hasAttendances: boolean
+}
 
 interface MonthlyFeeBreakdown {
   scheduleId: string
@@ -50,6 +62,7 @@ export default function StudentDetailPage() {
   const [student, setStudent] = useState<Student | null>(null)
   const [stats, setStats] = useState<StudentStats | null>(null)
   const [monthlyFeeData, setMonthlyFeeData] = useState<MonthlyFeeData | null>(null)
+  const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -81,13 +94,16 @@ export default function StudentDetailPage() {
         console.error('Error fetching monthly fee:', feeErr)
       }
 
-      // Fetch student stats (we'll need to create this endpoint)
-      // For now, we'll skip it or handle it gracefully
-      // const statsResponse = await fetch(`/api/students/${studentId}/stats`)
-      // if (statsResponse.ok) {
-      //   const statsData = await statsResponse.json()
-      //   setStats(statsData)
-      // }
+      // Fetch monthly stats
+      try {
+        const statsResponse = await fetch(`/api/students/${studentId}/monthly-stats`)
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json()
+          setMonthlyStats(statsData)
+        }
+      } catch (statsErr) {
+        console.error('Error fetching monthly stats:', statsErr)
+      }
 
     } catch (err: any) {
       setError(err.message || "Error al cargar el alumno")
@@ -145,17 +161,6 @@ export default function StudentDetailPage() {
     })
   }
 
-  const getBeltColor = (belt: string | null) => {
-    const colors: Record<string, string> = {
-      blanco: "bg-gray-100 text-gray-800 border-gray-300",
-      amarillo: "bg-yellow-100 text-yellow-800 border-yellow-300",
-      verde: "bg-green-100 text-green-800 border-green-300",
-      azul: "bg-blue-100 text-blue-800 border-blue-300",
-      rojo: "bg-red-100 text-red-800 border-red-300",
-      negro: "bg-gray-900 text-white border-gray-900"
-    }
-    return colors[belt || ""] || "bg-gray-100 text-gray-800 border-gray-300"
-  }
 
   if (isLoading) {
     return (
@@ -204,8 +209,8 @@ export default function StudentDetailPage() {
             <h1 className="text-3xl font-bold text-gray-900">{fullName}</h1>
             <div className="mt-2 flex items-center gap-2">
               {student.belt && (
-                <span className={`px-3 py-1 text-sm font-semibold rounded-full border ${getBeltColor(student.belt)}`}>
-                  Cinturón {student.belt.charAt(0).toUpperCase() + student.belt.slice(1)}
+                <span className={`px-3 py-1 text-sm font-semibold rounded-full border ${getBeltColorClasses(student.belt)}`}>
+                  {getBeltLabel(student.belt)}
                 </span>
               )}
               <span className={`px-3 py-1 text-sm font-semibold rounded-full ${
@@ -279,9 +284,7 @@ export default function StudentDetailPage() {
                   Cinturón Actual
                 </dt>
                 <dd className="mt-1 text-sm text-gray-900">
-                  {student.belt 
-                    ? student.belt.charAt(0).toUpperCase() + student.belt.slice(1)
-                    : "No especificado"}
+                  {getBeltLabel(student.belt || null)}
                 </dd>
               </div>
             </dl>
@@ -426,11 +429,14 @@ export default function StudentDetailPage() {
             </div>
           )}
 
-          {/* Quick Stats */}
+          {/* Monthly Stats */}
           <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">
+            <h2 className="text-lg font-medium text-gray-900 mb-1">
               Estadísticas
             </h2>
+            <p className="text-xs text-gray-500 mb-4">
+              {monthlyStats?.month || 'Mes actual'}
+            </p>
             <div className="space-y-4">
               <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                 <div className="flex items-center">
@@ -438,18 +444,50 @@ export default function StudentDetailPage() {
                   <span className="text-sm font-medium text-gray-700">Asistencias</span>
                 </div>
                 <span className="text-lg font-semibold text-blue-600">
-                  {stats?.totalAttendances || 0}
+                  {monthlyStats?.attendanceCount || 0}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+              <div className={`flex items-center justify-between p-3 rounded-lg ${
+                monthlyStats?.paymentStatusColor === 'green'
+                  ? 'bg-green-50'
+                  : monthlyStats?.paymentStatusColor === 'red'
+                  ? 'bg-red-50'
+                  : 'bg-gray-50'
+              }`}>
                 <div className="flex items-center">
-                  <DollarSign className="w-5 h-5 text-green-600 mr-2" />
-                  <span className="text-sm font-medium text-gray-700">Pagos</span>
+                  <DollarSign className={`w-5 h-5 mr-2 ${
+                    monthlyStats?.paymentStatusColor === 'green'
+                      ? 'text-green-600'
+                      : monthlyStats?.paymentStatusColor === 'red'
+                      ? 'text-red-600'
+                      : 'text-gray-600'
+                  }`} />
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-700">Pagos</span>
+                    {monthlyStats?.hasAttendances && monthlyStats.debt > 0 && (
+                      <span className="text-xs text-red-600">Deuda: ${monthlyStats.debt.toFixed(2)}</span>
+                    )}
+                  </div>
                 </div>
-                <span className="text-lg font-semibold text-green-600">
-                  {stats?.totalPayments || 0}
-                </span>
+                <div className="text-right">
+                  <span className={`text-lg font-semibold ${
+                    monthlyStats?.paymentStatusColor === 'green'
+                      ? 'text-green-600'
+                      : monthlyStats?.paymentStatusColor === 'red'
+                      ? 'text-red-600'
+                      : 'text-gray-600'
+                  }`}>
+                    {monthlyStats?.hasAttendances
+                      ? (monthlyStats.debt > 0
+                        ? `$${monthlyStats.totalPaid.toFixed(2)}`
+                        : 'Al día')
+                      : '$0'}
+                  </span>
+                  {!monthlyStats?.hasAttendances && (
+                    <p className="text-xs text-gray-500">Sin asistencias</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>

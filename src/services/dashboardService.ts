@@ -18,6 +18,12 @@ export interface DashboardStats {
   studentsByBelt: BeltDistribution[]
   todayAttendances: number
   todayPayments: number
+  studentsAttendedThisMonth: number
+  nextBirthday: {
+    studentName: string
+    date: Date
+    daysUntil: number
+  } | null
 }
 
 export interface BeltDistribution {
@@ -187,6 +193,57 @@ export const dashboardService = {
       }
     })
 
+    // Get unique students who attended this month
+    const monthlyAttendancesWithStudents = await prisma.attendance.findMany({
+      where: {
+        schedule: {
+          schoolId
+        },
+        date: {
+          gte: startDate,
+          lte: endDate
+        },
+        wasPresent: true
+      },
+      select: {
+        studentId: true
+      },
+      distinct: ['studentId']
+    })
+    const studentsAttendedThisMonth = monthlyAttendancesWithStudents.length
+
+    // Find next birthday
+    let nextBirthday: { studentName: string; date: Date; daysUntil: number } | null = null
+    const studentsWithBirthday = activeStudents.filter((s: any) => s.birthDate)
+    
+    if (studentsWithBirthday.length > 0) {
+      const today = new Date()
+      const currentYear = today.getFullYear()
+      
+      // Calculate next birthday for each student
+      const upcomingBirthdays = studentsWithBirthday.map((student: any) => {
+        const birthDate = new Date(student.birthDate)
+        let nextBirthdayDate = new Date(currentYear, birthDate.getMonth(), birthDate.getDate())
+        
+        // If birthday already passed this year, use next year
+        if (nextBirthdayDate < today) {
+          nextBirthdayDate = new Date(currentYear + 1, birthDate.getMonth(), birthDate.getDate())
+        }
+        
+        const daysUntil = Math.ceil((nextBirthdayDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+        
+        return {
+          studentName: `${student.firstName} ${student.lastName}`,
+          date: nextBirthdayDate,
+          daysUntil
+        }
+      })
+      
+      // Sort by days until and get the closest one
+      upcomingBirthdays.sort((a, b) => a.daysUntil - b.daysUntil)
+      nextBirthday = upcomingBirthdays[0]
+    }
+
     return {
       totalStudents: allStudents.length,
       activeStudents: activeStudents.length,
@@ -199,7 +256,9 @@ export const dashboardService = {
       studentsWithDebt,
       studentsByBelt,
       todayAttendances,
-      todayPayments
+      todayPayments,
+      studentsAttendedThisMonth,
+      nextBirthday
     }
   },
 
