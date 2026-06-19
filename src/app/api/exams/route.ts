@@ -35,37 +35,46 @@ export async function GET(request: NextRequest) {
             isActive: true,
           },
           include: {
-            schedule: true,
+            schedule: {
+              select: {
+                id: true,
+                name: true,
+                dayOfWeek: true,
+                startTime: true,
+                endTime: true,
+              },
+            },
           },
         },
         beltHistory: {
           orderBy: {
             changeDate: 'desc',
           },
-          take: 1, // Get only the most recent belt change
-        },
-        attendances: {
-          where: {
-            wasPresent: true,
-          },
-          orderBy: {
-            date: 'desc',
+          take: 1,
+          select: {
+            changeDate: true,
           },
         },
       },
     })
 
     // Process each student to calculate attendance since last belt change
-    const examData = students.map(student => {
+    const examDataPromises = students.map(async (student) => {
       const lastBeltChange = student.beltHistory[0]
       const referenceDate = lastBeltChange 
         ? new Date(lastBeltChange.changeDate)
         : new Date(student.createdAt)
 
-      // Count attendances since reference date
-      const attendancesSinceChange = student.attendances.filter(
-        att => new Date(att.date) >= referenceDate
-      ).length
+      // Count attendances since reference date using aggregation
+      const attendanceCount = await prisma.attendance.count({
+        where: {
+          studentId: student.id,
+          wasPresent: true,
+          date: {
+            gte: referenceDate,
+          },
+        },
+      })
 
       // Get unique schedules (classes)
       const schedules = student.enrollments.map(e => ({
@@ -82,13 +91,15 @@ export async function GET(request: NextRequest) {
         lastName: student.lastName,
         belt: student.belt,
         beltOrder: getBeltOrder(student.belt),
-        attendanceCount: attendancesSinceChange,
+        attendanceCount: attendanceCount,
         lastBeltChangeDate: lastBeltChange?.changeDate || student.createdAt,
         isFirstBelt: !lastBeltChange,
         schedules: schedules,
         createdAt: student.createdAt,
       }
     })
+
+    const examData = await Promise.all(examDataPromises)
 
     // Group by schedule
     const groupedBySchedule: Record<string, any[]> = {}
@@ -117,9 +128,15 @@ export async function GET(request: NextRequest) {
     })
 
     // Get schedule details for response
+    const scheduleIds = Object.keys(groupedBySchedule)
+    
+    if (scheduleIds.length === 0) {
+      return NextResponse.json([])
+    }
+
     const scheduleDetails = await prisma.schedule.findMany({
       where: {
-        id: { in: Object.keys(groupedBySchedule) },
+        id: { in: scheduleIds },
         schoolId: schoolId,
       },
       select: {
@@ -147,7 +164,7 @@ export async function GET(request: NextRequest) {
     console.error("Error fetching exam data:", error)
     
     return NextResponse.json(
-      { error: "Failed to fetch exam data" },
+      { error: error.message || "Failed to fetch exam data" },
       { status: 500 }
     )
   }
