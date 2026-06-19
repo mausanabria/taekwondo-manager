@@ -12,11 +12,12 @@ export const BELT_VALUES = [
   "azul-rojo",
   "rojo",
   "rojo-negro",
-  "negro-1",
-  "negro-2",
-  "negro-3",
-  "negro-4",
-  "negro-5"
+  "negro",
+  "negro-1dan",
+  "negro-2dan",
+  "negro-3dan",
+  "negro-4dan",
+  "negro-5dan"
 ] as const
 
 // Validation schema for creating a student
