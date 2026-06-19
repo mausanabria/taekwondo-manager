@@ -2,6 +2,9 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "@/lib/auth"
 import { dashboardService } from "@/services/dashboardService"
 
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 export async function GET() {
   try {
     const session = await getServerSession()
