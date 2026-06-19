@@ -61,4 +61,28 @@ export function sortByBelt<T extends { belt?: string | null }>(students: T[]): T
   })
 }
 
+// Get next belt level (for promotion)
+export function getNextBelt(currentBelt: string | null): string | null {
+  if (!currentBelt) return BELT_LEVELS[0].value
+  
+  const currentIndex = BELT_LEVELS.findIndex(b => b.value === currentBelt)
+  if (currentIndex === -1 || currentIndex === BELT_LEVELS.length - 1) {
+    return null // Already at highest belt or belt not found
+  }
+  
+  return BELT_LEVELS[currentIndex + 1].value
+}
+
+// Get previous belt level (for demotion)
+export function getPreviousBelt(currentBelt: string | null): string | null {
+  if (!currentBelt) return null
+  
+  const currentIndex = BELT_LEVELS.findIndex(b => b.value === currentBelt)
+  if (currentIndex === -1 || currentIndex === 0) {
+    return null // Already at lowest belt or belt not found
+  }
+  
+  return BELT_LEVELS[currentIndex - 1].value
+}
+
 // Made with Bob

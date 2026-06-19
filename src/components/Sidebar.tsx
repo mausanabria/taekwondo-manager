@@ -16,7 +16,8 @@ import {
   Menu,
   X,
   LogOut,
-  Cake
+  Cake,
+  GraduationCap
 } from "lucide-react"
 
 export default function Sidebar() {
@@ -48,6 +49,12 @@ export default function Sidebar() {
       name: "Asistencia",
       href: "/attendance",
       icon: ClipboardCheck,
+      show: true
+    },
+    {
+      name: "Exámenes",
+      href: "/exams",
+      icon: GraduationCap,
       show: true
     },
     {

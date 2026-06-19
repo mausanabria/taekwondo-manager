@@ -10,9 +10,9 @@ interface DashboardStatsProps {
 export function DashboardStats({ stats }: DashboardStatsProps) {
   const statCards = [
     {
-      title: "Total Alumnos",
-      value: stats.totalStudents,
-      subtitle: `${stats.activeStudents} activos • ${stats.studentsAttendedThisMonth} asistieron este mes`,
+      title: "Alumnos Activos",
+      value: stats.activeStudents,
+      subtitle: `${stats.studentsAttendedThisMonth} asistieron este mes`,
       icon: Users,
       color: "bg-blue-500",
       textColor: "text-blue-600"
