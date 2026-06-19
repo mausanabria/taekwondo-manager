@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
         lastName: true,
         belt: true,
         createdAt: true,
-        studentSchedules: {
+        enrollments: {
           where: {
             isActive: true,
           },
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
         attendanceCount,
         lastBeltChangeDate: referenceDate.toISOString(),
         isFirstBelt,
-        schedules: student.studentSchedules.map((ss: any) => ({
+        schedules: student.enrollments.map((ss: any) => ({
           id: ss.schedule.id,
           name: ss.schedule.name,
           dayOfWeek: ss.schedule.dayOfWeek,
