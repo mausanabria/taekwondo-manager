@@ -5,9 +5,12 @@ import { getBeltOrder } from "@/lib/belt-utils"
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('[EXAMS API] Starting request')
+    
     const session = await getServerSession()
     
     if (!session || !session.user) {
+      console.log('[EXAMS API] Unauthorized - no session')
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -17,13 +20,17 @@ export async function GET(request: NextRequest) {
     const schoolId = session.user.schoolId
     
     if (!schoolId) {
+      console.log('[EXAMS API] No school ID found')
       return NextResponse.json(
         { error: "No school associated with user" },
         { status: 400 }
       )
     }
 
+    console.log('[EXAMS API] School ID:', schoolId)
+
     // Get all active students with their schedules and belt history
+    console.log('[EXAMS API] Fetching students...')
     const students = await prisma.student.findMany({
       where: {
         schoolId: schoolId,
@@ -57,6 +64,8 @@ export async function GET(request: NextRequest) {
         },
       },
     })
+    
+    console.log('[EXAMS API] Found students:', students.length)
 
     // Process each student to calculate attendance since last belt change
     const examDataPromises = students.map(async (student) => {
@@ -100,6 +109,8 @@ export async function GET(request: NextRequest) {
     })
 
     const examData = await Promise.all(examDataPromises)
+    
+    console.log('[EXAMS API] Processed exam data:', examData.length)
 
     // Group by schedule
     const groupedBySchedule: Record<string, any[]> = {}
@@ -159,12 +170,17 @@ export async function GET(request: NextRequest) {
       students: groupedBySchedule[schedule.id] || [],
     }))
 
+    console.log('[EXAMS API] Returning result with', result.length, 'schedules')
     return NextResponse.json(result)
   } catch (error: any) {
-    console.error("Error fetching exam data:", error)
+    console.error("[EXAMS API] Error fetching exam data:", error)
+    console.error("[EXAMS API] Error stack:", error.stack)
     
     return NextResponse.json(
-      { error: error.message || "Failed to fetch exam data" },
+      {
+        error: error.message || "Failed to fetch exam data",
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      },
       { status: 500 }
     )
   }
