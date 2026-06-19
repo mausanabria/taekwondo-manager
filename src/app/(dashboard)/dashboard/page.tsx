@@ -6,7 +6,7 @@ import { DashboardStats } from "@/components/dashboard/DashboardStats"
 import { QuickActions } from "@/components/dashboard/QuickActions"
 import { StudentsByBelt } from "@/components/dashboard/StudentsByBelt"
 import { AttendanceChart } from "@/components/dashboard/AttendanceChart"
-import { PaymentAlerts } from "@/components/dashboard/PaymentAlerts"
+import { PaymentAlertsWrapper } from "@/components/dashboard/PaymentAlertsWrapper"
 import { UpcomingClasses } from "@/components/dashboard/UpcomingClasses"
 import { RecentActivity } from "@/components/dashboard/RecentActivity"
 
@@ -63,7 +63,7 @@ export default async function DashboardPage() {
 
         {/* Right Column */}
         <div className="space-y-6">
-          <PaymentAlerts alerts={paymentAlerts} />
+          <PaymentAlertsWrapper initialAlerts={paymentAlerts} />
           <RecentActivity activities={recentActivity} />
         </div>
       </div>
