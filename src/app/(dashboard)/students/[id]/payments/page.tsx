@@ -110,8 +110,8 @@ export default function StudentPaymentsPage() {
     setDeleteConfirmation({ show: false, payment: null })
   }
 
-  // Check if user is admin
-  const isAdmin = session?.user?.role === 'ADMIN'
+  // Allow any authenticated user to delete payments
+  const isAdmin = !!session?.user
 
   const monthNames = [
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
