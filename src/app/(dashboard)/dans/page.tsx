@@ -289,10 +289,10 @@ export default function DansPage() {
     setModalStudent(student)
   }
 
-  const handleModalSaved = () => {
+  const handleModalSaved = async () => {
+    await fetchStudents()
     setModalStudent(null)
     setEditingRecord(null)
-    fetchStudents()
   }
 
   const handleDelete = async (recordId: string) => {
