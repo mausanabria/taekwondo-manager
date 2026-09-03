@@ -17,7 +17,8 @@ import {
   X,
   LogOut,
   Cake,
-  GraduationCap
+  GraduationCap,
+  BarChart2
 } from "lucide-react"
 
 export default function Sidebar() {
@@ -49,6 +50,12 @@ export default function Sidebar() {
       name: "Asistencia",
       href: "/attendance",
       icon: ClipboardCheck,
+      show: true
+    },
+    {
+      name: "Resumen Anual",
+      href: "/attendance/annual",
+      icon: BarChart2,
       show: true
     },
     {
@@ -86,6 +93,10 @@ export default function Sidebar() {
   const isActive = (href: string) => {
     if (href === "/dashboard") {
       return pathname === "/" || pathname === "/dashboard"
+    }
+    // Exact match for /attendance so it doesn't stay active on /attendance/annual
+    if (href === "/attendance") {
+      return pathname === "/attendance" || pathname?.startsWith("/attendance/history")
     }
     return pathname?.startsWith(href)
   }

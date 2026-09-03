@@ -236,7 +236,10 @@ export const scheduleService = {
     return await prisma.studentSchedule.findMany({
       where: {
         scheduleId,
-        isActive: true
+        isActive: true,
+        student: {
+          isActive: true
+        }
       },
       include: {
         student: true
