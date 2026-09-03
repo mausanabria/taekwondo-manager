@@ -481,8 +481,13 @@ export const dashboardService = {
         ? (totalPresent / totalAttendances) * 100
         : 0
 
+      // Use ISO date string (yyyy-MM-dd) to avoid timezone shift on the client
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+
       trends.push({
-        date: startDate,
+        date: new Date(`${year}-${month}-${day}T12:00:00.000Z`),
         totalClasses,
         totalAttendances,
         attendanceRate: Math.round(attendanceRate * 100) / 100
