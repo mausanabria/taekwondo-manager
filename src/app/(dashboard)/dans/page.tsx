@@ -59,11 +59,13 @@ function DanModal({
 }) {
   const [form, setForm] = useState<DanFormState>(() => {
     if (editingRecord) {
+      // Parse date avoiding timezone shift: take only the date part of the ISO string
+      const rawDate = editingRecord.examDate
+        ? editingRecord.examDate.slice(0, 10)
+        : ""
       return {
         dan: editingRecord.dan,
-        examDate: editingRecord.examDate
-          ? format(new Date(editingRecord.examDate), "yyyy-MM-dd")
-          : "",
+        examDate: rawDate,
         ar: editingRecord.ar ?? "",
         danId: editingRecord.danId ?? "",
         notes: editingRecord.notes ?? "",
@@ -86,6 +88,7 @@ function DanModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          id: editingRecord?.id ?? null,   // pass id so API can update by PK
           studentId: student.id,
           dan: form.dan,
           examDate: form.examDate || null,
@@ -134,18 +137,25 @@ function DanModal({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Dan <span className="text-red-500">*</span>
             </label>
-            <select
-              value={form.dan}
-              onChange={(e) => setForm({ ...form, dan: Number(e.target.value) })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-transparent text-sm"
-              required
-            >
-              {DAN_LEVELS.map((d) => (
-                <option key={d} value={d}>
-                  {d}° Dan
-                </option>
-              ))}
-            </select>
+            {editingRecord ? (
+              // When editing, dan is fixed — show it as read-only text
+              <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-700">
+                {form.dan}° Dan
+              </div>
+            ) : (
+              <select
+                value={form.dan}
+                onChange={(e) => setForm({ ...form, dan: Number(e.target.value) })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-transparent text-sm"
+                required
+              >
+                {DAN_LEVELS.map((d) => (
+                  <option key={d} value={d}>
+                    {d}° Dan
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Exam date */}

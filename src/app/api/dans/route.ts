@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { studentId, dan, examDate, ar, danId, notes } = body
+    const { id, studentId, dan, examDate, ar, danId, notes } = body
 
     if (!studentId || !dan || dan < 1 || dan > 9) {
       return NextResponse.json(
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify student belongs to school and has black belt
+    // Verify student belongs to school
     const student = await prisma.student.findFirst({
       where: { id: studentId, schoolId: school.id },
     })
@@ -95,24 +95,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Alumno no encontrado" }, { status: 404 })
     }
 
-    const record = await prisma.danRecord.upsert({
-      where: { studentId_dan: { studentId, dan } },
-      create: {
-        studentId,
-        dan,
-        examDate: examDate ? new Date(examDate) : null,
-        ar: ar || null,
-        danId: danId || null,
-        notes: notes || null,
-        createdById: session.user.id,
-      },
-      update: {
-        examDate: examDate ? new Date(examDate) : null,
-        ar: ar || null,
-        danId: danId || null,
-        notes: notes || null,
-      },
-    })
+    const updateData = {
+      examDate: examDate ? new Date(examDate) : null,
+      ar: ar || null,
+      danId: danId || null,
+      notes: notes || null,
+    }
+
+    let record
+    if (id) {
+      // Edit existing record by PK — safe, no dan confusion
+      record = await prisma.danRecord.update({
+        where: { id },
+        data: updateData,
+      })
+    } else {
+      // Create new record
+      record = await prisma.danRecord.create({
+        data: {
+          studentId,
+          dan,
+          ...updateData,
+          createdById: session.user.id,
+        },
+      })
+    }
 
     return NextResponse.json(record, { status: 201 })
   } catch (error: any) {
