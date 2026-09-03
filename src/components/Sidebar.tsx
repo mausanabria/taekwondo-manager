@@ -79,7 +79,7 @@ export default function Sidebar() {
     },
     {
       name: "Danes",
-      href: "/dans",
+      href: "/danes",
       icon: Shield,
       show: true
     },

@@ -84,7 +84,7 @@ function DanModal({
     setSaving(true)
     setError(null)
     try {
-      const res = await fetch("/api/dans", {
+      const res = await fetch("/api/danes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -265,7 +265,7 @@ export default function DansPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch("/api/dans")
+      const res = await fetch("/api/danes")
       if (!res.ok) throw new Error("Error al cargar los datos")
       setStudents(await res.json())
     } catch (err: any) {
@@ -298,7 +298,7 @@ export default function DansPage() {
   const handleDelete = async (recordId: string) => {
     setDeletingId(recordId)
     try {
-      const res = await fetch(`/api/dans/${recordId}`, { method: "DELETE" })
+      const res = await fetch(`/api/danes/${recordId}`, { method: "DELETE" })
       if (!res.ok) throw new Error("Error al eliminar")
       fetchStudents()
     } catch (err: any) {
