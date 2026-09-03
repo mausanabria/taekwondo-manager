@@ -20,6 +20,7 @@ model User {
   accounts           Account[]
   attendancesCreated Attendance[]  @relation("CreatedByUser")
   beltHistoryCreated BeltHistory[] @relation("CreatedByUser")
+  danRecordsCreated  DanRecord[]   @relation("DanCreatedByUser")
   paymentsCreated    Payment[]     @relation("CreatedByUser")
   schedulesCreated   Schedule[]    @relation("CreatedByUser")
   schools            School[]
@@ -106,6 +107,7 @@ model Student {
   inactiveDate     DateTime?
   attendances      Attendance[]
   beltHistory      BeltHistory[]
+  danRecords       DanRecord[]
   payments         Payment[]
   enrollments      StudentSchedule[]
   createdBy        User?             @relation("CreatedByUser", fields: [createdById], references: [id])
@@ -266,6 +268,25 @@ model Payment {
   @@index([month, year])
   @@index([createdById])
   @@map("payments")
+}
+
+model DanRecord {
+  id          String   @id @default(cuid())
+  studentId   String
+  dan         Int      // 1 a 9
+  examDate    DateTime?
+  ar          String?
+  danId       String?  // ID del dan
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  createdBy   User?    @relation("DanCreatedByUser", fields: [createdById], references: [id])
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, dan])
+  @@index([studentId])
+  @@map("dan_records")
 }
 
 enum UserRole {

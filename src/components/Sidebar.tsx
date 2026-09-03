@@ -18,7 +18,8 @@ import {
   LogOut,
   Cake,
   GraduationCap,
-  BarChart2
+  BarChart2,
+  Shield
 } from "lucide-react"
 
 export default function Sidebar() {
@@ -74,6 +75,12 @@ export default function Sidebar() {
       name: "Cumpleaños",
       href: "/birthdays",
       icon: Cake,
+      show: true
+    },
+    {
+      name: "Danes",
+      href: "/dans",
+      icon: Shield,
       show: true
     },
     {
