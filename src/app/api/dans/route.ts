@@ -95,8 +95,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Alumno no encontrado" }, { status: 404 })
     }
 
+    // Store date at noon UTC to avoid timezone day-shift on read
     const updateData = {
-      examDate: examDate ? new Date(examDate) : null,
+      examDate: examDate ? new Date(`${examDate}T12:00:00.000Z`) : null,
       ar: ar || null,
       danId: danId || null,
       notes: notes || null,
