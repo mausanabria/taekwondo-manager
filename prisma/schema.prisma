@@ -20,7 +20,8 @@ model User {
   accounts           Account[]
   attendancesCreated Attendance[]  @relation("CreatedByUser")
   beltHistoryCreated BeltHistory[] @relation("CreatedByUser")
-  danRecordsCreated  DanRecord[]   @relation("DanCreatedByUser")
+  danRecordsCreated  DanRecord[]      @relation("DanCreatedByUser")
+  expensesCreated    MonthlyExpense[] @relation("ExpenseCreatedByUser")
   paymentsCreated    Payment[]     @relation("CreatedByUser")
   schedulesCreated   Schedule[]    @relation("CreatedByUser")
   schools            School[]
@@ -77,10 +78,11 @@ model School {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   ownerId        String
-  frequencyRates FrequencyRate[]
-  monthlyFees    MonthlyFee[]
-  payments       Payment[]
-  schedules      Schedule[]
+  frequencyRates  FrequencyRate[]
+  monthlyFees     MonthlyFee[]
+  monthlyExpenses MonthlyExpense[]
+  payments        Payment[]
+  schedules       Schedule[]
   owner          User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   students       Student[]
 
@@ -268,6 +270,26 @@ model Payment {
   @@index([month, year])
   @@index([createdById])
   @@map("payments")
+}
+
+model MonthlyExpense {
+  id          String   @id @default(cuid())
+  schoolId    String
+  month       Int
+  year        Int
+  amount      Decimal  @db.Decimal(10, 2)
+  description String?
+  isPaid      Boolean  @default(false)
+  paidDate    DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  createdBy   User?    @relation("ExpenseCreatedByUser", fields: [createdById], references: [id])
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolId, month, year])
+  @@index([schoolId, year, month])
+  @@map("monthly_expenses")
 }
 
 model DanRecord {

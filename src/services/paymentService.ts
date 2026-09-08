@@ -623,10 +623,18 @@ export const paymentService = {
     })
 
     // Calculate totals
-    const currentMonthRevenue = currentMonthPayments.reduce(
+    const currentMonthGross = currentMonthPayments.reduce(
       (sum: number, p: Payment) => sum + Number(p.amount),
       0
     )
+
+    // Subtract expense for current month
+    const currentMonthExpense = await prisma.monthlyExpense.findUnique({
+      where: { schoolId_month_year: { schoolId, month: currentMonth, year: currentYear } }
+    })
+    const currentMonthExpenseAmount = currentMonthExpense ? Number(currentMonthExpense.amount) : 0
+    const currentMonthRevenue = Math.max(0, currentMonthGross - currentMonthExpenseAmount)
+
     const currentYearRevenue = currentYearPayments.reduce(
       (sum: number, p: Payment) => sum + Number(p.amount),
       0

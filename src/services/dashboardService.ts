@@ -123,10 +123,17 @@ export const dashboardService = {
       }
     })
 
-    const monthlyRevenue = monthlyPayments.reduce(
+    const monthlyGrossRevenue = monthlyPayments.reduce(
       (sum: number, p: any) => sum + Number(p.amount),
       0
     )
+
+    // Subtract monthly expenses (e.g. rent) for this month
+    const monthlyExpense = await prisma.monthlyExpense.findUnique({
+      where: { schoolId_month_year: { schoolId, month: currentMonth, year: currentYear } }
+    })
+    const monthlyExpenseAmount = monthlyExpense ? Number(monthlyExpense.amount) : 0
+    const monthlyRevenue = Math.max(0, monthlyGrossRevenue - monthlyExpenseAmount)
 
     // Calculate debt statistics
     let totalDebt = 0

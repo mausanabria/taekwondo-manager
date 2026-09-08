@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { DollarSign, Plus, Edit2, Calendar, ArrowLeft, Loader2, AlertCircle, Repeat } from "lucide-react"
+import { DollarSign, Plus, Edit2, Calendar, ArrowLeft, Loader2, AlertCircle, Repeat, Home, Check, Clock, Trash2, Pencil } from "lucide-react"
 import Link from "next/link"
 import MonthlyFeeForm from "@/components/payments/MonthlyFeeForm"
 import FrequencyRatesForm from "@/components/payments/FrequencyRatesForm"
@@ -15,6 +15,24 @@ interface MonthlyFee {
   createdAt: Date
 }
 
+interface MonthlyExpense {
+  id: string
+  month: number
+  year: number
+  amount: number
+  description?: string | null
+  isPaid: boolean
+  paidDate?: string | null
+}
+
+const monthNames = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+]
+
+const currentYear = new Date().getFullYear()
+const YEAR_OPTIONS = Array.from({ length: 4 }, (_, i) => currentYear - i)
+
 export default function FeesConfigPage() {
   const [fees, setFees] = useState<MonthlyFee[]>([])
   const [loading, setLoading] = useState(true)
@@ -25,28 +43,39 @@ export default function FeesConfigPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
 
+  // Expenses state
+  const [expenses, setExpenses] = useState<MonthlyExpense[]>([])
+  const [expenseYear, setExpenseYear] = useState(new Date().getFullYear())
+  const [showExpenseForm, setShowExpenseForm] = useState(false)
+  const [editingExpense, setEditingExpense] = useState<MonthlyExpense | null>(null)
+  const [expenseForm, setExpenseForm] = useState({ month: new Date().getMonth() + 1, year: new Date().getFullYear(), amount: "", description: "" })
+  const [savingExpense, setSavingExpense] = useState(false)
+
   useEffect(() => {
     fetchFees()
+    fetchExpenses()
   }, [])
 
   const fetchFees = async () => {
     try {
       setLoading(true)
       setError(null)
-
       const response = await fetch('/api/payments/fees')
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch fees')
-      }
-
-      const data = await response.json()
-      setFees(data)
+      if (!response.ok) throw new Error('Failed to fetch fees')
+      setFees(await response.json())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
-      console.error('Error fetching fees:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchExpenses = async () => {
+    try {
+      const res = await fetch('/api/expenses')
+      if (res.ok) setExpenses(await res.json())
+    } catch (err) {
+      console.error('Error fetching expenses:', err)
     }
   }
 
@@ -61,10 +90,64 @@ export default function FeesConfigPage() {
     setShowForm(true)
   }
 
-  const monthNames = [
-    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-  ]
+  const handleOpenExpenseForm = (expense?: MonthlyExpense) => {
+    if (expense) {
+      setEditingExpense(expense)
+      setExpenseForm({ month: expense.month, year: expense.year, amount: String(expense.amount), description: expense.description || "" })
+    } else {
+      setEditingExpense(null)
+      setExpenseForm({ month: new Date().getMonth() + 1, year: expenseYear, amount: "", description: "" })
+    }
+    setShowExpenseForm(true)
+  }
+
+  const handleSaveExpense = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSavingExpense(true)
+    try {
+      if (editingExpense) {
+        await fetch(`/api/expenses/${editingExpense.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount: Number(expenseForm.amount), description: expenseForm.description }),
+        })
+      } else {
+        await fetch('/api/expenses', {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ month: expenseForm.month, year: expenseForm.year, amount: Number(expenseForm.amount), description: expenseForm.description }),
+        })
+      }
+      setShowExpenseForm(false)
+      setEditingExpense(null)
+      await fetchExpenses()
+    } finally {
+      setSavingExpense(false)
+    }
+  }
+
+  const handleTogglePaid = async (expense: MonthlyExpense) => {
+    await fetch(`/api/expenses/${expense.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isPaid: !expense.isPaid }),
+    })
+    await fetchExpenses()
+  }
+
+  const handleDeleteExpense = async (id: string) => {
+    if (!confirm("¿Eliminar este gasto?")) return
+    await fetch(`/api/expenses/${id}`, { method: "DELETE" })
+    await fetchExpenses()
+  }
+
+  const expensesByYear = expenses.reduce((acc, e) => {
+    if (!acc[e.year]) acc[e.year] = []
+    acc[e.year].push(e)
+    return acc
+  }, {} as Record<number, MonthlyExpense[]>)
+
+  const filteredExpenses = (expensesByYear[expenseYear] || []).sort((a, b) => a.month - b.month)
 
   // Group fees by year
   const feesByYear = fees.reduce((acc, fee) => {
@@ -223,6 +306,169 @@ export default function FeesConfigPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ── Gastos Mensuales ───────────────────────────────────────── */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Home className="h-5 w-5 text-orange-500" />
+              Gastos Mensuales
+            </h2>
+            <div className="flex items-center gap-3">
+              <select
+                value={expenseYear}
+                onChange={(e) => setExpenseYear(Number(e.target.value))}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-400"
+              >
+                {YEAR_OPTIONS.map((y) => <option key={y} value={y}>{y}</option>)}
+              </select>
+              <button
+                onClick={() => handleOpenExpenseForm()}
+                className="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors flex items-center gap-1.5 text-sm font-medium"
+              >
+                <Plus className="h-4 w-4" />
+                Nuevo Gasto
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {filteredExpenses.length === 0 ? (
+          <div className="p-10 text-center text-gray-500">
+            <Home className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+            <p className="text-sm">No hay gastos registrados para {expenseYear}</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {filteredExpenses.map((expense) => (
+              <div key={expense.id} className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center gap-4">
+                  {/* Paid toggle */}
+                  <button
+                    onClick={() => handleTogglePaid(expense)}
+                    title={expense.isPaid ? "Marcar como pendiente" : "Marcar como pagado"}
+                    className={`h-8 w-8 rounded-full flex items-center justify-center transition-colors border-2 ${
+                      expense.isPaid
+                        ? "bg-green-500 border-green-500 text-white"
+                        : "bg-white border-gray-300 text-gray-300 hover:border-orange-400"
+                    }`}
+                  >
+                    {expense.isPaid ? <Check className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+                  </button>
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {monthNames[expense.month - 1]} {expense.year}
+                    </p>
+                    {expense.description && (
+                      <p className="text-xs text-gray-500">{expense.description}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-orange-600">
+                      ${Number(expense.amount).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className={`text-xs font-medium ${expense.isPaid ? "text-green-600" : "text-amber-600"}`}>
+                      {expense.isPaid ? "✓ Pagado" : "Pendiente"}
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => handleOpenExpenseForm(expense)}
+                      className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteExpense(expense.id)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Expense Form Modal */}
+      {showExpenseForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <Home className="h-5 w-5 text-orange-500" />
+                  {editingExpense ? "Editar Gasto" : "Nuevo Gasto"}
+                </h2>
+                <button onClick={() => setShowExpenseForm(false)} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+              </div>
+              <form onSubmit={handleSaveExpense} className="space-y-4">
+                {!editingExpense && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Mes</label>
+                      <select
+                        value={expenseForm.month}
+                        onChange={(e) => setExpenseForm({ ...expenseForm, month: Number(e.target.value) })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-400"
+                      >
+                        {monthNames.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Año</label>
+                      <select
+                        value={expenseForm.year}
+                        onChange={(e) => setExpenseForm({ ...expenseForm, year: Number(e.target.value) })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-400"
+                      >
+                        {YEAR_OPTIONS.map((y) => <option key={y} value={y}>{y}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Monto <span className="text-red-500">*</span></label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    required
+                    value={expenseForm.amount}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })}
+                    placeholder="Ej: 50000"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                  <input
+                    type="text"
+                    value={expenseForm.description}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
+                    placeholder="Ej: Alquiler del salón"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-400"
+                  />
+                </div>
+                <div className="flex gap-3 pt-1">
+                  <button type="button" onClick={() => setShowExpenseForm(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
+                    Cancelar
+                  </button>
+                  <button type="submit" disabled={savingExpense} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm font-medium disabled:opacity-50">
+                    {savingExpense ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    {savingExpense ? "Guardando..." : "Guardar"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
       )}
 
