@@ -54,8 +54,8 @@ export function StudentForm({ student, onSubmit, onCancel }: StudentFormProps) {
         lastName: student.lastName || "",
         email: student.email || "",
         phone: student.phone || "",
-        birthDate: student.birthDate 
-          ? new Date(student.birthDate).toISOString().split('T')[0] 
+        birthDate: student.birthDate
+          ? new Date(student.birthDate).toISOString().split('T')[0]
           : "",
         belt: student.belt || "",
         address: student.address || "",

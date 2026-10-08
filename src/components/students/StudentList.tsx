@@ -6,6 +6,7 @@ import { Pencil, Trash2, Eye, UserCheck, UserX, Calendar, ChevronUp, ChevronDown
 import Link from "next/link"
 import { format } from "date-fns"
 import { getBeltLabel, getBeltColorClasses, getNextBelt, getPreviousBelt } from "@/lib/belt-utils"
+import { calculateAgeFromDate } from "@/lib/date-utils"
 
 interface StudentListProps {
   students: Student[]
@@ -140,20 +141,8 @@ export function StudentList({ students, onDelete, onStatusChange }: StudentListP
     }
   }
 
-  const calculateAge = (birthDate: Date | null): number | null => {
-    if (!birthDate) return null
-    
-    const today = new Date()
-    const birth = new Date(birthDate)
-    let age = today.getFullYear() - birth.getFullYear()
-    const monthDiff = today.getMonth() - birth.getMonth()
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--
-    }
-    
-    return age
-  }
+  const calculateAge = (birthDate: Date | null): number | null =>
+    calculateAgeFromDate(birthDate)
 
   if (students.length === 0) {
     return (

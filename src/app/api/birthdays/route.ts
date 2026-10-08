@@ -66,21 +66,25 @@ export async function GET(request: NextRequest) {
         if (!student.birthDate) return null
 
         const birthDate = new Date(student.birthDate)
-        const age = currentYear - birthDate.getFullYear()
+        // Use UTC getters so the date is not shifted by server timezone
+        const birthMonth = birthDate.getUTCMonth()
+        const birthDay = birthDate.getUTCDate()
+        const birthYear = birthDate.getUTCFullYear()
+        const age = currentYear - birthYear
         
         // Próximo cumpleaños este año
         let nextBirthday = new Date(
           currentYear,
-          birthDate.getMonth(),
-          birthDate.getDate()
+          birthMonth,
+          birthDay
         )
         
         // Si ya pasó este año, calcular para el próximo
         if (nextBirthday < today) {
           nextBirthday = new Date(
             currentYear + 1,
-            birthDate.getMonth(),
-            birthDate.getDate()
+            birthMonth,
+            birthDay
           )
         }
         
@@ -112,7 +116,8 @@ export async function GET(request: NextRequest) {
         return {
           id: student.id,
           name: `${student.firstName} ${student.lastName}`,
-          birthDate: birthDate.toISOString(),
+          // Send as plain YYYY-MM-DD so the client never does a UTC shift
+          birthDate: `${birthYear}-${String(birthMonth + 1).padStart(2, '0')}-${String(birthDay).padStart(2, '0')}`,
           nextBirthday: nextBirthday.toISOString(),
           age: age,
           nextAge: age + (nextBirthday.getFullYear() > currentYear ? 1 : 0),

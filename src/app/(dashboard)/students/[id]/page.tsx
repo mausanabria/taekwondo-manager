@@ -5,6 +5,7 @@ import { Student } from "@/types"
 import { StudentStats } from "@/services/studentService"
 import { StudentSchedules } from "@/components/students/StudentSchedules"
 import { getBeltLabel, getBeltColorClasses } from "@/lib/belt-utils"
+import { parseDateUTC, formatBirthDate, calculateAgeFromDate } from "@/lib/date-utils"
 import {
   ArrowLeft,
   Pencil,
@@ -137,29 +138,11 @@ export default function StudentDetailPage() {
     }
   }
 
-  const calculateAge = (birthDate: Date | null): number | null => {
-    if (!birthDate) return null
-    
-    const today = new Date()
-    const birth = new Date(birthDate)
-    let age = today.getFullYear() - birth.getFullYear()
-    const monthDiff = today.getMonth() - birth.getMonth()
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--
-    }
-    
-    return age
-  }
+  const calculateAge = (birthDate: Date | string | null): number | null =>
+    calculateAgeFromDate(birthDate)
 
-  const formatDate = (date: Date | null): string => {
-    if (!date) return "No especificada"
-    return new Date(date).toLocaleDateString("es-AR", {
-      year: "numeric",
-      month: "long",
-      day: "numeric"
-    })
-  }
+  const formatDate = (date: Date | string | null): string =>
+    formatBirthDate(date)
 
 
   if (isLoading) {

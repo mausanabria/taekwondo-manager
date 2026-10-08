@@ -3,26 +3,15 @@
 import { Student } from "@/types"
 import { Pencil, Eye, Phone, Mail, UserCheck, UserX } from "lucide-react"
 import Link from "next/link"
+import { calculateAgeFromDate } from "@/lib/date-utils"
 
 interface StudentCardProps {
   student: Student
 }
 
 export function StudentCard({ student }: StudentCardProps) {
-  const calculateAge = (birthDate: Date | null): number | null => {
-    if (!birthDate) return null
-    
-    const today = new Date()
-    const birth = new Date(birthDate)
-    let age = today.getFullYear() - birth.getFullYear()
-    const monthDiff = today.getMonth() - birth.getMonth()
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--
-    }
-    
-    return age
-  }
+  const calculateAge = (birthDate: Date | null): number | null =>
+    calculateAgeFromDate(birthDate)
 
   const getBeltColor = (belt: string | null) => {
     const colors: Record<string, string> = {

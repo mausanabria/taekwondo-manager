@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Cake, Calendar, Users, PartyPopper, Clock } from "lucide-react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
+import { parseDateUTC } from "@/lib/date-utils"
 
 interface Birthday {
   id: string
@@ -211,7 +212,7 @@ export default function BirthdaysPage() {
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-gray-400" />
                       <span>
-                        {format(new Date(birthday.nextBirthday), "EEEE, d 'de' MMMM", {
+                        {format(parseDateUTC(birthday.nextBirthday)!, "EEEE, d 'de' MMMM", {
                           locale: es,
                         })}
                       </span>
@@ -225,7 +226,7 @@ export default function BirthdaysPage() {
                       <Cake className="h-4 w-4 text-gray-400" />
                       <span>
                         Fecha de nacimiento:{" "}
-                        {format(new Date(birthday.birthDate), "d 'de' MMMM 'de' yyyy", {
+                        {format(parseDateUTC(birthday.birthDate)!, "d 'de' MMMM 'de' yyyy", {
                           locale: es,
                         })}
                       </span>
