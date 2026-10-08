@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { User, BarChart2 } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { Search, BarChart2, X } from "lucide-react"
 
 interface Student {
   id: string
@@ -29,12 +29,16 @@ function formatMonthLabel(month: string) {
 
 export default function StudentMonthlyAttendance() {
   const [students, setStudents] = useState<Student[]>([])
-  const [selectedStudentId, setSelectedStudentId] = useState("")
+  const [searchText, setSearchText] = useState("")
+  const [showDropdown, setShowDropdown] = useState(false)
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [summary, setSummary] = useState<MonthSummary[]>([])
   const [loadingStudents, setLoadingStudents] = useState(true)
   const [loadingSummary, setLoadingSummary] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
+  // Load students once
   useEffect(() => {
     const load = async () => {
       try {
@@ -51,22 +55,34 @@ export default function StudentMonthlyAttendance() {
     load()
   }, [])
 
+  // Close dropdown when clicking outside
   useEffect(() => {
-    if (!selectedStudentId) {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowDropdown(false)
+      }
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [])
+
+  // Load summary when selected student changes
+  useEffect(() => {
+    if (!selectedStudent) {
       setSummary([])
       return
     }
-
     const load = async () => {
       setLoadingSummary(true)
       setError(null)
       try {
         const res = await fetch(
-          `/api/attendance/monthly-summary/${selectedStudentId}`
+          `/api/attendance/monthly-summary/${selectedStudent.id}`
         )
         if (!res.ok) throw new Error("Error al cargar resumen")
         const data = await res.json()
-        setSummary(data.summary)
+        // Reverse so newest month is first (top)
+        setSummary([...data.summary].reverse())
       } catch (e: any) {
         setError(e.message)
       } finally {
@@ -74,10 +90,31 @@ export default function StudentMonthlyAttendance() {
       }
     }
     load()
-  }, [selectedStudentId])
+  }, [selectedStudent])
+
+  // Filtered list based on search text
+  const filtered = students.filter((s) => {
+    const q = searchText.toLowerCase()
+    return (
+      s.firstName.toLowerCase().includes(q) ||
+      s.lastName.toLowerCase().includes(q)
+    )
+  })
+
+  const handleSelect = (s: Student) => {
+    setSelectedStudent(s)
+    setSearchText(`${s.lastName}, ${s.firstName}`)
+    setShowDropdown(false)
+  }
+
+  const handleClear = () => {
+    setSelectedStudent(null)
+    setSearchText("")
+    setSummary([])
+    setError(null)
+  }
 
   const maxTotal = Math.max(...summary.map((s) => s.total), 1)
-
   const totalPresent = summary.reduce((acc, s) => acc + s.present, 0)
   const totalAbsent = summary.reduce((acc, s) => acc + s.absent, 0)
   const totalClasses = totalPresent + totalAbsent
@@ -98,28 +135,56 @@ export default function StudentMonthlyAttendance() {
         </div>
       </div>
 
-      {/* Student selector */}
+      {/* Search input with live dropdown */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Alumno
         </label>
-        <div className="relative">
-          <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <select
-            value={selectedStudentId}
-            onChange={(e) => setSelectedStudentId(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        <div className="relative" ref={containerRef}>
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4 pointer-events-none" />
+          <input
+            type="text"
+            value={searchText}
+            onChange={(e) => {
+              setSearchText(e.target.value)
+              setShowDropdown(true)
+              // Clear selection if user edits after picking
+              if (selectedStudent) setSelectedStudent(null)
+            }}
+            onFocus={() => setShowDropdown(true)}
+            placeholder={loadingStudents ? "Cargando alumnos..." : "Buscar por nombre o apellido..."}
             disabled={loadingStudents}
-          >
-            <option value="">
-              {loadingStudents ? "Cargando alumnos..." : "Seleccionar alumno"}
-            </option>
-            {students.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.lastName}, {s.firstName}
-              </option>
-            ))}
-          </select>
+            className="w-full pl-9 pr-9 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          {searchText && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+
+          {/* Dropdown */}
+          {showDropdown && searchText && filtered.length > 0 && (
+            <ul className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+              {filtered.map((s) => (
+                <li
+                  key={s.id}
+                  onMouseDown={() => handleSelect(s)}
+                  className="px-4 py-2 cursor-pointer hover:bg-blue-50 text-sm text-gray-800"
+                >
+                  {s.lastName}, {s.firstName}
+                </li>
+              ))}
+            </ul>
+          )}
+          {showDropdown && searchText && filtered.length === 0 && !loadingStudents && (
+            <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg px-4 py-3 text-sm text-gray-500">
+              No se encontraron alumnos
+            </div>
+          )}
         </div>
       </div>
 
@@ -138,7 +203,7 @@ export default function StudentMonthlyAttendance() {
       )}
 
       {/* Summary table + mini bar chart */}
-      {!loadingSummary && selectedStudentId && summary.length > 0 && (
+      {!loadingSummary && selectedStudent && summary.length > 0 && (
         <>
           {/* YTD totals */}
           <div className="grid grid-cols-3 gap-3">
@@ -174,26 +239,16 @@ export default function StudentMonthlyAttendance() {
             </div>
           </div>
 
-          {/* Monthly breakdown */}
+          {/* Monthly breakdown — newest first */}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100">
-                  <th className="text-left py-2 pr-4 text-gray-500 font-medium">
-                    Mes
-                  </th>
-                  <th className="text-right py-2 px-3 text-gray-500 font-medium">
-                    Presentes
-                  </th>
-                  <th className="text-right py-2 px-3 text-gray-500 font-medium">
-                    Ausentes
-                  </th>
-                  <th className="text-right py-2 pl-3 text-gray-500 font-medium">
-                    Total
-                  </th>
-                  <th className="py-2 pl-4 w-40 text-gray-500 font-medium text-left">
-                    Gráfico
-                  </th>
+                  <th className="text-left py-2 pr-4 text-gray-500 font-medium">Mes</th>
+                  <th className="text-right py-2 px-3 text-gray-500 font-medium">Presentes</th>
+                  <th className="text-right py-2 px-3 text-gray-500 font-medium">Ausentes</th>
+                  <th className="text-right py-2 pl-3 text-gray-500 font-medium">Total</th>
+                  <th className="py-2 pl-4 w-40 text-gray-500 font-medium text-left">Gráfico</th>
                 </tr>
               </thead>
               <tbody>
@@ -220,17 +275,13 @@ export default function StudentMonthlyAttendance() {
                           <>
                             <div
                               className="bg-green-400 rounded-sm h-4"
-                              style={{
-                                width: `${(row.present / maxTotal) * 120}px`
-                              }}
+                              style={{ width: `${(row.present / maxTotal) * 120}px` }}
                               title={`${row.present} presentes`}
                             />
                             {row.absent > 0 && (
                               <div
                                 className="bg-red-300 rounded-sm h-4"
-                                style={{
-                                  width: `${(row.absent / maxTotal) * 120}px`
-                                }}
+                                style={{ width: `${(row.absent / maxTotal) * 120}px` }}
                                 title={`${row.absent} ausentes`}
                               />
                             )}
@@ -248,8 +299,8 @@ export default function StudentMonthlyAttendance() {
         </>
       )}
 
-      {/* Empty state after selecting */}
-      {!loadingSummary && selectedStudentId && summary.length === 0 && !error && (
+      {/* Empty state */}
+      {!loadingSummary && selectedStudent && summary.length === 0 && !error && (
         <div className="text-center py-6 text-gray-400 text-sm">
           No hay registros de asistencia en los últimos 12 meses.
         </div>
