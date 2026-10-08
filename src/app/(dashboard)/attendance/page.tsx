@@ -7,6 +7,7 @@ import { Calendar, Save, CheckCircle, AlertCircle } from "lucide-react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import AttendanceList from "@/components/attendance/AttendanceList"
+import StudentMonthlyAttendance from "@/components/attendance/StudentMonthlyAttendance"
 
 interface Schedule {
   id: string
@@ -479,6 +480,9 @@ export default function AttendancePage() {
           </p>
         </div>
       )}
+
+      {/* Monthly summary per student */}
+      <StudentMonthlyAttendance />
     </div>
   )
 }
