@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { Shirt, Plus, Trash2, X, Save, Loader2, Check, Undo2 } from "lucide-react"
+import { Shirt, Plus, Pencil, Trash2, X, Save, Loader2, Check, Undo2 } from "lucide-react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 
@@ -32,18 +32,22 @@ const formatMoney = (n: number) =>
 
 function SaleModal({
   students,
+  editing,
   onClose,
   onSaved,
 }: {
   students: StudentOption[]
+  editing: ApparelSale | null
   onClose: () => void
   onSaved: () => void
 }) {
-  const [studentId, setStudentId] = useState("")
-  const [studentQuery, setStudentQuery] = useState("")
+  const [studentId, setStudentId] = useState(editing?.student.id ?? "")
+  const [studentQuery, setStudentQuery] = useState(
+    editing ? `${editing.student.lastName}, ${editing.student.firstName}` : ""
+  )
   const [listOpen, setListOpen] = useState(false)
-  const [description, setDescription] = useState("")
-  const [amount, setAmount] = useState("")
+  const [description, setDescription] = useState(editing?.description ?? "")
+  const [amount, setAmount] = useState(editing ? String(editing.amount) : "")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -75,8 +79,8 @@ function SaleModal({
     setSaving(true)
     setError(null)
     try {
-      const res = await fetch("/api/apparel", {
-        method: "POST",
+      const res = await fetch(editing ? `/api/apparel/${editing.id}` : "/api/apparel", {
+        method: editing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ studentId, description, amount: Number(amount) }),
       })
@@ -99,7 +103,9 @@ function SaleModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Nueva venta</h2>
+          <h2 className="text-lg font-semibold text-gray-900">
+            {editing ? "Editar venta" : "Nueva venta"}
+          </h2>
           <button
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
@@ -220,6 +226,11 @@ export default function ApparelPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [editingSale, setEditingSale] = useState<ApparelSale | null>(null)
+  const closeModal = () => {
+    setShowModal(false)
+    setEditingSale(null)
+  }
   const [filter, setFilter] = useState<Filter>("pending")
   const [busyId, setBusyId] = useState<string | null>(null)
 
@@ -420,6 +431,17 @@ export default function ApparelPage() {
                         )}
                       </button>
                       <button
+                        onClick={() => {
+                          setEditingSale(sale)
+                          setShowModal(true)
+                        }}
+                        disabled={busyId === sale.id}
+                        className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-40"
+                        title="Editar"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
                         onClick={() => handleDelete(sale)}
                         disabled={busyId === sale.id}
                         className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
@@ -439,9 +461,10 @@ export default function ApparelPage() {
       {showModal && (
         <SaleModal
           students={students}
-          onClose={() => setShowModal(false)}
+          editing={editingSale}
+          onClose={closeModal}
           onSaved={() => {
-            setShowModal(false)
+            closeModal()
             fetchSales()
           }}
         />
