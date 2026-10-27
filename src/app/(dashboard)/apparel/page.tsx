@@ -40,13 +40,38 @@ function SaleModal({
   onSaved: () => void
 }) {
   const [studentId, setStudentId] = useState("")
+  const [studentQuery, setStudentQuery] = useState("")
+  const [listOpen, setListOpen] = useState(false)
   const [description, setDescription] = useState("")
   const [amount, setAmount] = useState("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const normalize = (v: string) =>
+    v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+
+  const filteredStudents = useMemo(() => {
+    const words = normalize(studentQuery).split(/\s+/).filter(Boolean)
+    if (words.length === 0) return students
+    return students.filter((s) => {
+      const full = normalize(`${s.lastName} ${s.firstName}`)
+      return words.every((w) => full.includes(w))
+    })
+  }, [students, studentQuery])
+
+  const selectStudent = (s: StudentOption) => {
+    setStudentId(s.id)
+    setStudentQuery(`${s.lastName}, ${s.firstName}`)
+    setListOpen(false)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!studentId) {
+      setError("Elegí un alumno de la lista")
+      setListOpen(true)
+      return
+    }
     setSaving(true)
     setError(null)
     try {
@@ -84,23 +109,48 @@ function SaleModal({
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Alumno <span className="text-red-500">*</span>
             </label>
-            <select
-              value={studentId}
-              onChange={(e) => setStudentId(e.target.value)}
+            <input
+              type="text"
+              value={studentQuery}
+              onChange={(e) => {
+                setStudentQuery(e.target.value)
+                setStudentId("")
+                setListOpen(true)
+              }}
+              onFocus={() => setListOpen(true)}
+              onBlur={() => setListOpen(false)}
+              placeholder="Escribí nombre o apellido..."
+              autoComplete="off"
+              autoFocus
               className={inputClass}
-              required
-            >
-              <option value="">Seleccionar alumno...</option>
-              {students.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.lastName}, {s.firstName}
-                </option>
-              ))}
-            </select>
+            />
+            {listOpen && (
+              <ul className="absolute z-10 mt-1 w-full max-h-56 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                {filteredStudents.length === 0 ? (
+                  <li className="px-3 py-2 text-sm text-gray-500">Sin resultados</li>
+                ) : (
+                  filteredStudents.map((s) => (
+                    <li
+                      key={s.id}
+                      // onMouseDown fires before the input's onBlur closes the list
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        selectStudent(s)
+                      }}
+                      className={`px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 ${
+                        s.id === studentId ? "bg-gray-100 font-medium" : "text-gray-800"
+                      }`}
+                    >
+                      {s.lastName}, {s.firstName}
+                    </li>
+                  ))
+                )}
+              </ul>
+            )}
           </div>
 
           <div>
