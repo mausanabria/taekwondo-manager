@@ -19,7 +19,8 @@ import {
   Cake,
   GraduationCap,
   BarChart2,
-  Shield
+  Shield,
+  Shirt
 } from "lucide-react"
 
 export default function Sidebar() {
@@ -69,6 +70,12 @@ export default function Sidebar() {
       name: "Pagos",
       href: "/payments",
       icon: DollarSign,
+      show: true
+    },
+    {
+      name: "Indumentaria",
+      href: "/apparel",
+      icon: Shirt,
       show: true
     },
     {

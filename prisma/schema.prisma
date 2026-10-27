@@ -82,6 +82,7 @@ model School {
   monthlyFees     MonthlyFee[]
   monthlyExpenses MonthlyExpense[]
   payments        Payment[]
+  apparelSales    ApparelSale[]
   schedules       Schedule[]
   owner          User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   students       Student[]
@@ -111,6 +112,7 @@ model Student {
   beltHistory      BeltHistory[]
   danRecords       DanRecord[]
   payments         Payment[]
+  apparelSales     ApparelSale[]
   enrollments      StudentSchedule[]
   createdBy        User?             @relation("CreatedByUser", fields: [createdById], references: [id])
   school           School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
@@ -270,6 +272,24 @@ model Payment {
   @@index([month, year])
   @@index([createdById])
   @@map("payments")
+}
+
+model ApparelSale {
+  id          String    @id @default(cuid())
+  description String
+  amount      Decimal   @db.Decimal(10, 2)
+  isPaid      Boolean   @default(false)
+  paidDate    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  studentId   String
+  schoolId    String
+  school      School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, isPaid])
+  @@index([studentId])
+  @@map("apparel_sales")
 }
 
 model MonthlyExpense {
