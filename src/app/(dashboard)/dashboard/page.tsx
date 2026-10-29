@@ -4,10 +4,6 @@ import { requireAuth } from "@/lib/auth"
 import { dashboardService } from "@/services/dashboardService"
 import { DashboardStats } from "@/components/dashboard/DashboardStats"
 import { QuickActions } from "@/components/dashboard/QuickActions"
-import { StudentsByBelt } from "@/components/dashboard/StudentsByBelt"
-import { AttendanceChart } from "@/components/dashboard/AttendanceChart"
-import { PaymentAlertsWrapper } from "@/components/dashboard/PaymentAlertsWrapper"
-import { UpcomingClasses } from "@/components/dashboard/UpcomingClasses"
 import { RecentActivity } from "@/components/dashboard/RecentActivity"
 
 export default async function DashboardPage() {
@@ -28,13 +24,11 @@ export default async function DashboardPage() {
   }
 
   // Fetch all dashboard data
-  const [stats, recentActivity, upcomingClasses, paymentAlerts, attendanceTrend] =
+  const [stats, recentActivity, upcomingClasses] =
     await Promise.all([
       dashboardService.getDashboardStats(schoolId),
       dashboardService.getRecentActivity(schoolId, 10),
-      dashboardService.getUpcomingClasses(schoolId),
-      dashboardService.getPaymentAlerts(schoolId, 5),
-      dashboardService.getAttendanceTrend(schoolId, 7)
+      dashboardService.getUpcomingClasses(schoolId)
     ])
 
   return (
@@ -53,23 +47,8 @@ export default async function DashboardPage() {
       {/* Main Stats */}
       <DashboardStats stats={stats} />
 
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column */}
-        <div className="space-y-6">
-          <UpcomingClasses classes={upcomingClasses} />
-          <StudentsByBelt distribution={stats.studentsByBelt} />
-        </div>
-
-        {/* Right Column */}
-        <div className="space-y-6">
-          <PaymentAlertsWrapper initialAlerts={paymentAlerts} />
-          <RecentActivity activities={recentActivity} />
-        </div>
-      </div>
-
-      {/* Full Width Chart */}
-      <AttendanceChart trends={attendanceTrend} />
+      {/* Recent Activity */}
+      <RecentActivity activities={recentActivity} />
 
       {/* Today's Summary */}
       <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg shadow-lg p-6 text-white">
