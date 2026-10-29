@@ -31,76 +31,86 @@ export default function Sidebar() {
 
   const navigation = [
     {
-      name: "Dashboard",
-      href: "/dashboard",
-      icon: LayoutDashboard,
-      show: true
+      title: "General",
+      items: [
+        {
+          name: "Dashboard",
+          href: "/dashboard",
+          icon: LayoutDashboard,
+          show: true
+        },
+        {
+          name: "Alumnos",
+          href: "/students",
+          icon: Users,
+          show: true
+        },
+        {
+          name: "Horarios",
+          href: "/schedules",
+          icon: Calendar,
+          show: true
+        },
+        {
+          name: "Asistencia",
+          href: "/attendance",
+          icon: ClipboardCheck,
+          show: true
+        },
+        {
+          name: "Pagos",
+          href: "/payments",
+          icon: DollarSign,
+          show: true
+        },
+        {
+          name: "Indumentaria",
+          href: "/apparel",
+          icon: Shirt,
+          show: true
+        },
+        {
+          name: "Danes",
+          href: "/danes",
+          icon: Shield,
+          show: true
+        },
+        {
+          name: "Usuarios",
+          href: "/settings/users",
+          icon: UserCog,
+          show: isAdmin
+        },
+        {
+          name: "Configuración",
+          href: "/settings",
+          icon: Settings,
+          show: true
+        }
+      ]
     },
     {
-      name: "Alumnos",
-      href: "/students",
-      icon: Users,
-      show: true
-    },
-    {
-      name: "Horarios",
-      href: "/schedules",
-      icon: Calendar,
-      show: true
-    },
-    {
-      name: "Asistencia",
-      href: "/attendance",
-      icon: ClipboardCheck,
-      show: true
-    },
-    {
-      name: "Resumen Anual",
-      href: "/attendance/annual",
-      icon: BarChart2,
-      show: true
-    },
-    {
-      name: "Exámenes",
-      href: "/exams",
-      icon: GraduationCap,
-      show: true
-    },
-    {
-      name: "Pagos",
-      href: "/payments",
-      icon: DollarSign,
-      show: true
-    },
-    {
-      name: "Indumentaria",
-      href: "/apparel",
-      icon: Shirt,
-      show: true
-    },
-    {
-      name: "Cumpleaños",
-      href: "/birthdays",
-      icon: Cake,
-      show: true
-    },
-    {
-      name: "Danes",
-      href: "/danes",
-      icon: Shield,
-      show: true
-    },
-    {
-      name: "Usuarios",
-      href: "/settings/users",
-      icon: UserCog,
-      show: isAdmin
-    },
-    {
-      name: "Configuración",
-      href: "/settings",
-      icon: Settings,
-      show: true
+      title: "Reportes",
+      items: [
+        {
+          name: "Resumen Anual",
+          href: "/attendance/annual",
+          icon: BarChart2,
+          show: true
+        },
+        {
+          name: "Exámenes",
+          href: "/exams",
+          icon: GraduationCap,
+          show: true
+        },
+        {
+          name: "Cumpleaños",
+          href: "/birthdays",
+          icon: Cake,
+          show: true
+        }
+      ]
     }
   ]
 
@@ -189,32 +199,39 @@ export default function Sidebar() {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-            {navigation.map((item) => {
-              if (!item.show) return null
-              
-              const Icon = item.icon
-              const active = isActive(item.href)
+          <nav className="flex-1 px-3 py-4 space-y-4 overflow-y-auto">
+            {navigation.map((section) => (
+              <div key={section.title} className="space-y-1">
+                <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  {section.title}
+                </p>
+                {section.items.map((item) => {
+                  if (!item.show) return null
 
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  onClick={() => setIsOpen(false)}
-                  className={`
-                    flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
-                    ${
-                      active
-                        ? "bg-blue-50 text-blue-700 border border-blue-200"
-                        : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-                    }
-                  `}
-                >
-                  <Icon className={`h-5 w-5 flex-shrink-0 ${active ? "text-blue-700" : "text-gray-400"}`} />
-                  <span>{item.name}</span>
-                </Link>
-              )
-            })}
+                  const Icon = item.icon
+                  const active = isActive(item.href)
+
+                  return (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      onClick={() => setIsOpen(false)}
+                      className={`
+                        flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
+                        ${
+                          active
+                            ? "bg-blue-50 text-blue-700 border border-blue-200"
+                            : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                        }
+                      `}
+                    >
+                      <Icon className={`h-5 w-5 flex-shrink-0 ${active ? "text-blue-700" : "text-gray-400"}`} />
+                      <span>{item.name}</span>
+                    </Link>
+                  )
+                })}
+              </div>
+            ))}
           </nav>
 
           {/* Logout Button */}
