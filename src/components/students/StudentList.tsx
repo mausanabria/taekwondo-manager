@@ -2,10 +2,10 @@
 
 import { useState } from "react"
 import { Student } from "@/types"
-import { Pencil, Trash2, Eye, UserCheck, UserX, Calendar, ChevronUp, ChevronDown } from "lucide-react"
+import { Pencil, Trash2, Eye, UserCheck, UserX, Calendar, ChevronUp, ChevronDown, ArrowUpDown } from "lucide-react"
 import Link from "next/link"
 import { format } from "date-fns"
-import { getBeltLabel, getBeltColorClasses, getNextBelt, getPreviousBelt } from "@/lib/belt-utils"
+import { getBeltLabel, getBeltColorClasses, getNextBelt, getPreviousBelt, getBeltOrder } from "@/lib/belt-utils"
 import { calculateAgeFromDate } from "@/lib/date-utils"
 
 interface StudentListProps {
@@ -14,8 +14,11 @@ interface StudentListProps {
   onStatusChange?: () => void
 }
 
-export function StudentList({ students, onDelete, onStatusChange }: StudentListProps) {
+type SortKey = "name" | "age" | "belt" | "phone" | "email" | "status"
+
+export function StudentList({ students: rawStudents, onDelete, onStatusChange }: StudentListProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null)
   const [statusChangeDialog, setStatusChangeDialog] = useState<{
     student: Student | null
     open: boolean
@@ -144,6 +147,69 @@ export function StudentList({ students, onDelete, onStatusChange }: StudentListP
   const calculateAge = (birthDate: Date | null): number | null =>
     calculateAgeFromDate(birthDate)
 
+  const handleSort = (key: SortKey) => {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" }
+      if (prev.dir === "asc") return { key, dir: "desc" }
+      return null
+    })
+  }
+
+  const sortValue = (s: Student, key: SortKey): string | number | null => {
+    switch (key) {
+      case "name":
+        return `${s.firstName} ${s.lastName}`.toLowerCase()
+      case "age":
+        return calculateAge(s.birthDate ?? null)
+      case "belt":
+        return s.belt ? getBeltOrder(s.belt) : null
+      case "phone":
+        return s.phone ? s.phone.toLowerCase() : null
+      case "email":
+        return s.email ? s.email.toLowerCase() : null
+      case "status":
+        return s.isActive ? 1 : 0
+    }
+  }
+
+  const students = sort
+    ? [...rawStudents].sort((a, b) => {
+        const va = sortValue(a, sort.key)
+        const vb = sortValue(b, sort.key)
+        // Empty values always go last
+        if (va === null && vb === null) return 0
+        if (va === null) return 1
+        if (vb === null) return -1
+        const cmp = typeof va === "string" && typeof vb === "string"
+          ? va.localeCompare(vb, "es")
+          : (va as number) - (vb as number)
+        return sort.dir === "asc" ? cmp : -cmp
+      })
+    : rawStudents
+
+  const SortableTh = ({ label, sortKey }: { label: string; sortKey: SortKey }) => {
+    const active = sort?.key === sortKey
+    return (
+      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+        <button
+          type="button"
+          onClick={() => handleSort(sortKey)}
+          className="inline-flex items-center gap-1 uppercase tracking-wider hover:text-gray-900"
+          title="Ordenar"
+        >
+          {label}
+          {active && sort?.dir === "asc" ? (
+            <ChevronUp className="w-3.5 h-3.5 text-blue-600" />
+          ) : active ? (
+            <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+          ) : (
+            <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />
+          )}
+        </button>
+      </th>
+    )
+  }
+
   if (students.length === 0) {
     return (
       <div className="text-center py-12 bg-white rounded-lg shadow">
@@ -171,24 +237,12 @@ export function StudentList({ students, onDelete, onStatusChange }: StudentListP
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Nombre
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Edad
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Cinturón
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Teléfono
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Email
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Estado
-              </th>
+              {SortableTh({ label: "Nombre", sortKey: "name" })}
+              {SortableTh({ label: "Edad", sortKey: "age" })}
+              {SortableTh({ label: "Cinturón", sortKey: "belt" })}
+              {SortableTh({ label: "Teléfono", sortKey: "phone" })}
+              {SortableTh({ label: "Email", sortKey: "email" })}
+              {SortableTh({ label: "Estado", sortKey: "status" })}
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Acciones
               </th>
