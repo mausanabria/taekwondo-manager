@@ -74,18 +74,6 @@ export default function Sidebar() {
           href: "/danes",
           icon: Shield,
           show: true
-        },
-        {
-          name: "Usuarios",
-          href: "/settings/users",
-          icon: UserCog,
-          show: isAdmin
-        },
-        {
-          name: "Configuración",
-          href: "/settings",
-          icon: Settings,
-          show: true
         }
       ]
     },
@@ -108,6 +96,23 @@ export default function Sidebar() {
           name: "Cumpleaños",
           href: "/birthdays",
           icon: Cake,
+          show: true
+        }
+      ]
+    },
+    {
+      title: "Sistema",
+      items: [
+        {
+          name: "Usuarios",
+          href: "/settings/users",
+          icon: UserCog,
+          show: isAdmin
+        },
+        {
+          name: "Configuración",
+          href: "/settings",
+          icon: Settings,
           show: true
         }
       ]
