@@ -240,7 +240,12 @@ export default function ApparelPage() {
     setError(null)
     try {
       const res = await fetch("/api/apparel")
-      if (!res.ok) throw new Error("Error al cargar las ventas")
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(
+          `Error al cargar las ventas (${res.status})${data?.error ? `: ${data.error}` : ""}`
+        )
+      }
       setSales(await res.json())
     } catch (err: any) {
       setError(err.message)
