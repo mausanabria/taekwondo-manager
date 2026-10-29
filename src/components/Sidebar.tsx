@@ -199,10 +199,10 @@ export default function Sidebar() {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-3 py-4 space-y-4 overflow-y-auto">
+          <nav className="flex-1 px-3 py-4 space-y-7 overflow-y-auto">
             {navigation.map((section) => (
-              <div key={section.title} className="space-y-1">
-                <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
+              <div key={section.title} className="space-y-0.5">
+                <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
                   {section.title}
                 </p>
                 {section.items.map((item) => {
@@ -217,7 +217,7 @@ export default function Sidebar() {
                       href={item.href}
                       onClick={() => setIsOpen(false)}
                       className={`
-                        flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
+                        flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors
                         ${
                           active
                             ? "bg-blue-50 text-blue-700 border border-blue-200"
@@ -225,7 +225,7 @@ export default function Sidebar() {
                         }
                       `}
                     >
-                      <Icon className={`h-5 w-5 flex-shrink-0 ${active ? "text-blue-700" : "text-gray-400"}`} />
+                      <Icon className={`h-4 w-4 flex-shrink-0 ${active ? "text-blue-700" : "text-gray-400"}`} />
                       <span>{item.name}</span>
                     </Link>
                   )
