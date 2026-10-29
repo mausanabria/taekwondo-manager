@@ -17,8 +17,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     })
     if (!existing) return NextResponse.json({ error: "No encontrado" }, { status: 404 })
 
-    const { isPaid, studentId, description, amount } = await req.json()
+    const { isPaid, isDelivered, studentId, description, amount } = await req.json()
     const data: Record<string, unknown> = {}
+
+    if (isDelivered !== undefined) {
+      if (typeof isDelivered !== "boolean") {
+        return NextResponse.json({ error: "isDelivered inválido" }, { status: 400 })
+      }
+      data.isDelivered = isDelivered
+      data.deliveredDate = isDelivered ? new Date() : null
+    }
 
     if (isPaid !== undefined) {
       if (typeof isPaid !== "boolean") {

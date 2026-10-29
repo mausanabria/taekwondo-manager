@@ -280,6 +280,8 @@ model ApparelSale {
   amount      Decimal   @db.Decimal(10, 2)
   isPaid      Boolean   @default(false)
   paidDate    DateTime?
+  isDelivered Boolean   @default(false)
+  deliveredDate DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   studentId   String

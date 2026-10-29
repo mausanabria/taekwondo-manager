@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { Shirt, Plus, Pencil, Trash2, X, Save, Loader2, Check, Undo2 } from "lucide-react"
+import { Shirt, Plus, Pencil, Trash2, X, Save, Loader2, Check, Undo2, PackageCheck } from "lucide-react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 
@@ -13,6 +13,8 @@ interface ApparelSale {
   amount: number
   isPaid: boolean
   paidDate: string | null
+  isDelivered: boolean
+  deliveredDate: string | null
   createdAt: string
   student: { id: string; firstName: string; lastName: string }
 }
@@ -23,7 +25,7 @@ interface StudentOption {
   lastName: string
 }
 
-type Filter = "pending" | "paid" | "all"
+type Filter = "pending" | "paid" | "undelivered" | "all"
 
 const formatMoney = (n: number) =>
   new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 2 }).format(n)
@@ -261,13 +263,16 @@ export default function ApparelPage() {
       .catch(() => setStudents([]))
   }, [fetchSales])
 
-  const togglePaid = async (sale: ApparelSale) => {
+  const togglePaid = (sale: ApparelSale) => updateSale(sale, { isPaid: !sale.isPaid })
+  const toggleDelivered = (sale: ApparelSale) => updateSale(sale, { isDelivered: !sale.isDelivered })
+
+  const updateSale = async (sale: ApparelSale, body: { isPaid?: boolean; isDelivered?: boolean }) => {
     setBusyId(sale.id)
     try {
       const res = await fetch(`/api/apparel/${sale.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isPaid: !sale.isPaid }),
+        body: JSON.stringify(body),
       })
       if (!res.ok) throw new Error("Error al actualizar")
       const updated: ApparelSale = await res.json()
@@ -298,11 +303,18 @@ export default function ApparelPage() {
     [sales]
   )
   const pendingCount = useMemo(() => sales.filter((s) => !s.isPaid).length, [sales])
+  const undeliveredCount = useMemo(() => sales.filter((s) => !s.isDelivered).length, [sales])
 
   const visible = useMemo(
     () =>
       sales.filter((s) =>
-        filter === "all" ? true : filter === "pending" ? !s.isPaid : s.isPaid
+        filter === "all"
+          ? true
+          : filter === "pending"
+            ? !s.isPaid
+            : filter === "paid"
+              ? s.isPaid
+              : !s.isDelivered
       ),
     [sales, filter]
   )
@@ -344,13 +356,19 @@ export default function ApparelPage() {
         <div className="flex gap-2">
           {filterButton("pending", "Pendientes")}
           {filterButton("paid", "Pagados")}
+          {filterButton("undelivered", "Sin entregar")}
           {filterButton("all", "Todos")}
         </div>
-        <p className="text-sm text-gray-700">
-          Pendiente de cobro:{" "}
-          <span className="font-semibold text-red-600">{formatMoney(pendingTotal)}</span>{" "}
-          <span className="text-gray-500">({pendingCount})</span>
-        </p>
+        <div className="text-sm text-gray-700 text-right">
+          <p>
+            Pendiente de cobro:{" "}
+            <span className="font-semibold text-red-600">{formatMoney(pendingTotal)}</span>{" "}
+            <span className="text-gray-500">({pendingCount})</span>
+          </p>
+          <p>
+            Sin entregar: <span className="font-semibold text-amber-600">{undeliveredCount}</span>
+          </p>
+        </div>
       </div>
 
       {loading ? (
@@ -363,7 +381,11 @@ export default function ApparelPage() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 text-center py-16">
           <Shirt className="h-12 w-12 text-gray-300 mx-auto mb-3" />
           <p className="font-medium text-gray-700">
-            {filter === "pending" ? "No hay ventas pendientes de pago" : "No hay ventas para mostrar"}
+            {filter === "pending"
+              ? "No hay ventas pendientes de pago"
+              : filter === "undelivered"
+                ? "No hay ventas sin entregar"
+                : "No hay ventas para mostrar"}
           </p>
         </div>
       ) : (
@@ -371,11 +393,11 @@ export default function ApparelPage() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {["Fecha", "Alumno", "Artículo", "Monto", "Estado", "Acciones"].map((h, i) => (
+                {["Fecha", "Alumno", "Artículo", "Monto", "Pago", "Entrega", "Acciones"].map((h, i) => (
                   <th
                     key={h}
                     className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                      i === 5 ? "text-right" : "text-left"
+                      i === 6 ? "text-right" : "text-left"
                     }`}
                   >
                     {h}
@@ -409,6 +431,19 @@ export default function ApparelPage() {
                       </span>
                     )}
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {sale.isDelivered ? (
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        Entregado
+                        {sale.deliveredDate &&
+                          ` ${format(new Date(sale.deliveredDate), "dd/MM", { locale: es })}`}
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                        Sin entregar
+                      </span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button
@@ -427,6 +462,25 @@ export default function ApparelPage() {
                         ) : (
                           <>
                             <Check className="h-3.5 w-3.5" /> Marcar pagado
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => toggleDelivered(sale)}
+                        disabled={busyId === sale.id}
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
+                          sale.isDelivered
+                            ? "border border-gray-300 text-gray-700 hover:bg-gray-50"
+                            : "bg-blue-600 text-white hover:bg-blue-700"
+                        }`}
+                      >
+                        {sale.isDelivered ? (
+                          <>
+                            <Undo2 className="h-3.5 w-3.5" /> Desmarcar
+                          </>
+                        ) : (
+                          <>
+                            <PackageCheck className="h-3.5 w-3.5" /> Marcar entregado
                           </>
                         )}
                       </button>
