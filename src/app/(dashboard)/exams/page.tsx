@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Loader2, GraduationCap, Calendar, TrendingUp, Users } from "lucide-react"
-import { getBeltLabel, getBeltColorClasses } from "@/lib/belt-utils"
+import { Loader2, GraduationCap, Calendar, TrendingUp, Users, Download } from "lucide-react"
+import { getBeltLabel, getBeltColorClasses, getNextBelt } from "@/lib/belt-utils"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import Link from "next/link"
@@ -14,6 +14,7 @@ interface Student {
   belt: string | null
   beltOrder: number
   attendanceCount: number
+  takesNextExam: boolean
   lastBeltChangeDate: string
   isFirstBelt: boolean
   scheduleName: string
@@ -48,6 +49,7 @@ export default function ExamsPage() {
   const [examData, setExamData] = useState<ExamGroup[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetchExamData()
@@ -66,6 +68,13 @@ export default function ExamsPage() {
 
       const data = await response.json()
       setExamData(data)
+      setSelectedIds(
+        new Set(
+          (data as ExamGroup[]).flatMap((g) =>
+            g.students.filter((s) => s.takesNextExam).map((s) => s.id)
+          )
+        )
+      )
     } catch (err: any) {
       setError(err.message || "Error al cargar los datos")
     } finally {
@@ -83,6 +92,71 @@ export default function ExamsPage() {
     const diffTime = Math.abs(now.getTime() - date.getTime())
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
     return diffDays
+  }
+
+  // Optimistic update; reverts the local state if saving fails
+  const persistSelection = async (ids: string[], takesNextExam: boolean) => {
+    if (ids.length === 0) return
+    const previous = selectedIds
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      ids.forEach((id) => (takesNextExam ? next.add(id) : next.delete(id)))
+      return next
+    })
+    try {
+      const response = await fetch("/api/exams", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentIds: ids, takesNextExam }),
+      })
+      if (!response.ok) throw new Error()
+    } catch {
+      setSelectedIds(previous)
+      alert("No se pudo guardar la selección. Intentá nuevamente.")
+    }
+  }
+
+  const toggleStudent = (id: string) => {
+    persistSelection([id], !selectedIds.has(id))
+  }
+
+  const exportSelected = () => {
+    // Un alumno puede estar en varios horarios: se consolida en una sola fila
+    const byId = new Map<string, { student: Student; schedules: string[] }>()
+    examData.forEach((group) => {
+      group.students.forEach((student) => {
+        if (!selectedIds.has(student.id)) return
+        const label = `${group.schedule.name} (${DAYS_OF_WEEK[group.schedule.dayOfWeek]} ${group.schedule.startTime}-${group.schedule.endTime})`
+        const entry = byId.get(student.id)
+        if (entry) entry.schedules.push(label)
+        else byId.set(student.id, { student, schedules: [label] })
+      })
+    })
+
+    const escape = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`
+    const header = ["Apellido", "Nombre", "Graduación actual", "Graduación a rendir", "Asistencias", "Horarios"]
+    const rows = Array.from(byId.values())
+      .sort((a, b) => a.student.lastName.localeCompare(b.student.lastName, "es"))
+      .map(({ student, schedules }) => {
+        const next = getNextBelt(student.belt)
+        return [
+          student.lastName,
+          student.firstName,
+          getBeltLabel(student.belt),
+          next ? getBeltLabel(next) : "Máxima graduación",
+          student.attendanceCount,
+          schedules.join(" | "),
+        ].map(escape).join(",")
+      })
+
+    const csv = "\uFEFF" + [header.map(escape).join(","), ...rows].join("\r\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `examen-${format(new Date(), "yyyy-MM-dd")}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
   }
 
   if (isLoading) {
@@ -114,7 +188,13 @@ export default function ExamsPage() {
   }
 
   const totalStudents = examData.reduce((sum, group) => sum + group.students.length, 0)
-  const uniqueStudents = new Set(examData.flatMap(group => group.students.map(s => s.id))).size
+  const allStudentIds = Array.from(new Set(examData.flatMap(group => group.students.map(s => s.id))))
+  const uniqueStudents = allStudentIds.length
+  const allSelected = uniqueStudents > 0 && selectedIds.size === uniqueStudents
+
+  const toggleAll = () => {
+    persistSelection(allStudentIds, !allSelected)
+  }
 
   return (
     <div className="space-y-6">
@@ -129,6 +209,26 @@ export default function ExamsPage() {
             <p className="mt-2 text-sm text-gray-600">
               Seguimiento de asistencias desde el último cambio de graduación
             </p>
+          </div>
+          <div className="mt-4 sm:mt-0 flex flex-wrap items-center gap-2">
+            <span className="text-sm text-gray-600">
+              {selectedIds.size} seleccionado{selectedIds.size !== 1 ? 's' : ''} para rendir
+            </span>
+            <button
+              onClick={toggleAll}
+              disabled={uniqueStudents === 0}
+              className="px-4 py-2 text-sm font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {allSelected ? "Desmarcar todos" : "Marcar todos"}
+            </button>
+            <button
+              onClick={exportSelected}
+              disabled={selectedIds.size === 0}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Download className="w-4 h-4" />
+              Exportar
+            </button>
           </div>
         </div>
       </div>
@@ -208,6 +308,9 @@ export default function ExamsPage() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Rinde
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Alumno
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -233,6 +336,15 @@ export default function ExamsPage() {
                       
                       return (
                         <tr key={`${group.schedule.id}-${student.id}`} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.has(student.id)}
+                              onChange={() => toggleStudent(student.id)}
+                              aria-label={`Rinde examen: ${student.firstName} ${student.lastName}`}
+                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">
                               {student.firstName} {student.lastName}

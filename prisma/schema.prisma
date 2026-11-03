@@ -108,6 +108,7 @@ model Student {
   schoolId         String
   createdById      String?
   inactiveDate     DateTime?
+  takesNextExam    Boolean           @default(false)
   attendances      Attendance[]
   beltHistory      BeltHistory[]
   danRecords       DanRecord[]

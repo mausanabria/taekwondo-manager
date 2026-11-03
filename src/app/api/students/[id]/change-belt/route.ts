@@ -73,7 +73,8 @@ export async function POST(
       // Update student's current belt
       const updatedStudent = await tx.student.update({
         where: { id: params.id },
-        data: { belt: newBelt },
+        // Reset the exam mark: it referred to the previous belt's next exam
+        data: { belt: newBelt, takesNextExam: false },
       })
 
       // Create belt history record

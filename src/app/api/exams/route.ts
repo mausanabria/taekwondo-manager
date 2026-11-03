@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
@@ -42,6 +43,7 @@ export async function GET(request: NextRequest) {
         lastName: true,
         belt: true,
         createdAt: true,
+        takesNextExam: true,
         enrollments: {
           where: {
             isActive: true,
@@ -102,6 +104,7 @@ export async function GET(request: NextRequest) {
         belt: student.belt,
         beltOrder: getBeltOrder(student.belt),
         attendanceCount,
+        takesNextExam: student.takesNextExam,
         lastBeltChangeDate: referenceDate.toISOString(),
         isFirstBelt,
         schedules: student.enrollments.map((ss: any) => ({
@@ -185,6 +188,53 @@ export async function GET(request: NextRequest) {
         details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
         type: error.constructor.name
       },
+      { status: 500 }
+    )
+  }
+}
+
+const updateSchema = z.object({
+  studentIds: z.array(z.string()).min(1),
+  takesNextExam: z.boolean(),
+})
+
+// PUT /api/exams - Mark/unmark students for the next exam
+export async function PUT(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const school = await prisma.school.findFirst({
+      where: { ownerId: session.user.id }
+    })
+
+    if (!school) {
+      return NextResponse.json({ error: "School not found" }, { status: 404 })
+    }
+
+    const parsed = updateSchema.safeParse(await request.json())
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: parsed.error.errors },
+        { status: 400 }
+      )
+    }
+
+    const { studentIds, takesNextExam } = parsed.data
+
+    const result = await prisma.student.updateMany({
+      where: { id: { in: studentIds }, schoolId: school.id },
+      data: { takesNextExam },
+    })
+
+    return NextResponse.json({ updated: result.count })
+  } catch (error: any) {
+    console.error("[EXAMS API] Error updating:", error)
+    return NextResponse.json(
+      { error: error.message || "Failed to update exam selection" },
       { status: 500 }
     )
   }
