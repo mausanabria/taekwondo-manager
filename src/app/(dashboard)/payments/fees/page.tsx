@@ -13,6 +13,13 @@ interface MonthlyFee {
   year: number
   description?: string | null
   createdAt: Date
+  scheduleFees?: { scheduleId: string; amount: number }[]
+}
+
+interface ScheduleInfo {
+  id: string
+  name: string
+  startTime: string
 }
 
 interface MonthlyExpense {
@@ -35,6 +42,7 @@ const YEAR_OPTIONS = Array.from({ length: 4 }, (_, i) => currentYear - i)
 
 export default function FeesConfigPage() {
   const [fees, setFees] = useState<MonthlyFee[]>([])
+  const [schedules, setSchedules] = useState<ScheduleInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -54,7 +62,17 @@ export default function FeesConfigPage() {
   useEffect(() => {
     fetchFees()
     fetchExpenses()
+    fetchSchedules()
   }, [])
+
+  const fetchSchedules = async () => {
+    try {
+      const res = await fetch('/api/schedules')
+      if (res.ok) setSchedules(await res.json())
+    } catch (err) {
+      console.error('Error fetching schedules:', err)
+    }
+  }
 
   const fetchFees = async () => {
     try {
@@ -296,6 +314,21 @@ export default function FeesConfigPage() {
                           </button>
                         </div>
                       </div>
+                      {fee.scheduleFees && fee.scheduleFees.length > 0 && (
+                        <ul className="mt-3 pt-3 border-t border-gray-100 space-y-1">
+                          {fee.scheduleFees.map((sf) => {
+                            const schedule = schedules.find((s) => s.id === sf.scheduleId)
+                            return (
+                              <li key={sf.scheduleId} className="flex justify-between text-xs text-gray-600">
+                                <span className="truncate pr-2">{schedule?.name || "Clase"}</span>
+                                <span className="font-semibold text-gray-900">
+                                  ${Number(sf.amount).toLocaleString('es-AR')}
+                                </span>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
                       {fee.description && (
                         <p className="text-xs text-gray-600 mt-2 line-clamp-2">
                           {fee.description}

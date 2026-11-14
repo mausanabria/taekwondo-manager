@@ -54,10 +54,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(fee)
     }
 
-    // Otherwise, get all fees
-    const fees = await paymentService.getAllMonthlyFees(school.id)
+    // Otherwise, get all fees, each with its per-class fees
+    const [fees, scheduleFees] = await Promise.all([
+      paymentService.getAllMonthlyFees(school.id),
+      paymentService.getScheduleFees(school.id)
+    ])
 
-    return NextResponse.json(fees)
+    const feesWithSchedules = fees.map((fee) => ({
+      ...fee,
+      scheduleFees: scheduleFees
+        .filter((sf) => sf.year === fee.year && sf.month === fee.month)
+        .map((sf) => ({ scheduleId: sf.scheduleId, amount: Number(sf.amount) }))
+    }))
+
+    return NextResponse.json(feesWithSchedules)
   } catch (error) {
     console.error("Error fetching monthly fees:", error)
     return NextResponse.json(
@@ -115,7 +125,8 @@ export async function POST(request: NextRequest) {
       year: data.year,
       month: data.month,
       amount: data.amount,
-      description: data.description
+      description: data.description,
+      scheduleFees: data.scheduleFees
     })
 
     return NextResponse.json(fee, { status: 201 })
@@ -192,7 +203,8 @@ export async function PUT(request: NextRequest) {
     const fee = await paymentService.updateMonthlyFee(
       id,
       data.amount,
-      school.id
+      school.id,
+      data.scheduleFees
     )
 
     return NextResponse.json(fee)

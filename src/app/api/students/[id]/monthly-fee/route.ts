@@ -125,6 +125,19 @@ export async function GET(
       }
     })
 
+    // Get per-class fees for current month: scheduleId -> amount
+    const scheduleFeeRows = await prisma.scheduleFee.findMany({
+      where: {
+        schoolId: school.id,
+        year: currentYear,
+        month: currentMonth
+      }
+    })
+    const scheduleFeeMap = new Map<string, number>()
+    scheduleFeeRows.forEach((sf) => {
+      scheduleFeeMap.set(sf.scheduleId, Number(sf.amount))
+    })
+
     // Create a map for quick lookup: weeklyFrequency -> amount
     const frequencyRateMap = new Map<number, number>()
     frequencyRates.forEach((rate: any) => {
@@ -136,7 +149,8 @@ export async function GET(
     const breakdown = enrollments.map((enrollment) => {
       let feeAmount: number
       let effectiveFrequency = enrollment.weeklyFrequency
-      
+      const classFee = scheduleFeeMap.get(enrollment.schedule.id)
+
       // Check if there's frequency history for current month
       if (enrollment.frequencyHistory && enrollment.frequencyHistory.length > 0) {
         const monthStart = new Date(currentYear, currentMonth - 1, 1)
@@ -154,11 +168,13 @@ export async function GET(
         if (currentHistory) {
           effectiveFrequency = currentHistory.weeklyFrequency
           
-          // Priority: 1) Custom fee from history, 2) Custom fee from enrollment, 3) Frequency rate, 4) General fee
+          // Priority: 1) Custom fee from history, 2) Custom fee from enrollment, 3) Class fee, 4) Frequency rate, 5) General fee
           if (currentHistory.monthlyFee) {
             feeAmount = Number(currentHistory.monthlyFee)
           } else if (enrollment.monthlyFee) {
             feeAmount = Number(enrollment.monthlyFee)
+          } else if (classFee) {
+            feeAmount = classFee
           } else if (frequencyRateMap.has(effectiveFrequency)) {
             feeAmount = frequencyRateMap.get(effectiveFrequency)!
           } else {
@@ -168,6 +184,8 @@ export async function GET(
           // No history for current month, use current enrollment values
           if (enrollment.monthlyFee) {
             feeAmount = Number(enrollment.monthlyFee)
+          } else if (classFee) {
+            feeAmount = classFee
           } else if (frequencyRateMap.has(effectiveFrequency)) {
             feeAmount = frequencyRateMap.get(effectiveFrequency)!
           } else {
@@ -178,6 +196,8 @@ export async function GET(
         // No history, use current enrollment values
         if (enrollment.monthlyFee) {
           feeAmount = Number(enrollment.monthlyFee)
+        } else if (classFee) {
+          feeAmount = classFee
         } else if (frequencyRateMap.has(effectiveFrequency)) {
           feeAmount = frequencyRateMap.get(effectiveFrequency)!
         } else {
@@ -201,7 +221,7 @@ export async function GET(
         endTime: enrollment.schedule.endTime,
         weeklyFrequency: effectiveFrequency,
         monthlyFee: feeAmount,
-        isCustom: enrollment.monthlyFee !== null,
+        isCustom: enrollment.monthlyFee !== null || classFee !== undefined,
         hasFrequencyHistory: enrollment.frequencyHistory && enrollment.frequencyHistory.length > 0
       }
     })

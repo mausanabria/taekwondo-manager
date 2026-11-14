@@ -80,6 +80,7 @@ model School {
   ownerId        String
   frequencyRates  FrequencyRate[]
   monthlyFees     MonthlyFee[]
+  scheduleFees    ScheduleFee[]
   monthlyExpenses MonthlyExpense[]
   payments        Payment[]
   apparelSales    ApparelSale[]
@@ -158,6 +159,7 @@ model Schedule {
   createdBy   User?             @relation("CreatedByUser", fields: [createdById], references: [id])
   school      School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   enrollments StudentSchedule[]
+  scheduleFees ScheduleFee[]
 
   @@index([schoolId])
   @@index([dayOfWeek])
@@ -234,6 +236,24 @@ model MonthlyFee {
   @@unique([schoolId, month, year])
   @@index([schoolId])
   @@map("monthly_fees")
+}
+
+// Cuota mensual propia de una clase (override de la cuota general / tarifa por frecuencia)
+model ScheduleFee {
+  id         String   @id @default(cuid())
+  amount     Decimal  @db.Decimal(10, 2)
+  month      Int
+  year       Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  scheduleId String
+  schoolId   String
+  schedule   Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  school     School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, year, month])
+  @@index([schoolId, year, month])
+  @@map("schedule_fees")
 }
 
 model FrequencyRate {

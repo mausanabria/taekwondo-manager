@@ -3,12 +3,19 @@ import { Payment, MonthlyFee } from "@/types"
 import { attendanceService } from "./attendanceService"
 import { startOfMonth, endOfMonth, isBefore, isAfter } from "date-fns"
 
+/** Cuota propia de una clase. amount = null elimina la cuota de esa clase. */
+export interface ScheduleFeeInput {
+  scheduleId: string
+  amount: number | null
+}
+
 export interface CreateMonthlyFeeData {
   schoolId: string
   year: number
   month: number
   amount: number
   description?: string | null
+  scheduleFees?: ScheduleFeeInput[]
 }
 
 export interface RecordPaymentData {
@@ -81,7 +88,7 @@ export const paymentService = {
       throw new Error(`Monthly fee for ${data.month}/${data.year} already exists`)
     }
 
-    return await prisma.monthlyFee.create({
+    const created = await prisma.monthlyFee.create({
       data: {
         schoolId: data.schoolId,
         month: data.month,
@@ -90,6 +97,67 @@ export const paymentService = {
         description: data.description
       }
     })
+
+    if (data.scheduleFees && data.scheduleFees.length > 0) {
+      await this.setScheduleFees(data.schoolId, data.year, data.month, data.scheduleFees)
+    }
+
+    return created
+  },
+
+  /**
+   * Get all per-class fees configured for a school (all months)
+   */
+  async getScheduleFees(schoolId: string) {
+    return await prisma.scheduleFee.findMany({
+      where: { schoolId },
+      select: { scheduleId: true, month: true, year: true, amount: true }
+    })
+  },
+
+  /**
+   * Create, update or remove per-class fees for a month.
+   * amount = null removes the class fee (the class goes back to the base/frequency fee).
+   */
+  async setScheduleFees(
+    schoolId: string,
+    year: number,
+    month: number,
+    items: ScheduleFeeInput[]
+  ): Promise<void> {
+    if (items.length === 0) return
+
+    // Every class must belong to the school
+    const scheduleIds = Array.from(new Set(items.map((i) => i.scheduleId)))
+    const schedules = await prisma.schedule.findMany({
+      where: { id: { in: scheduleIds }, schoolId },
+      select: { id: true }
+    })
+    if (schedules.length !== scheduleIds.length) {
+      throw new Error("Unauthorized: Schedule does not belong to your school")
+    }
+
+    await prisma.$transaction(
+      items.map((item) =>
+        item.amount === null
+          ? prisma.scheduleFee.deleteMany({
+              where: { scheduleId: item.scheduleId, year, month, schoolId }
+            })
+          : prisma.scheduleFee.upsert({
+              where: {
+                scheduleId_year_month: { scheduleId: item.scheduleId, year, month }
+              },
+              create: {
+                scheduleId: item.scheduleId,
+                schoolId,
+                year,
+                month,
+                amount: item.amount
+              },
+              update: { amount: item.amount }
+            })
+      )
+    )
   },
 
   /**
@@ -130,7 +198,8 @@ export const paymentService = {
   async updateMonthlyFee(
     id: string,
     amount: number,
-    schoolId: string
+    schoolId: string,
+    scheduleFees?: ScheduleFeeInput[]
   ): Promise<MonthlyFee> {
     // Validate amount
     if (amount <= 0) {
@@ -150,10 +219,16 @@ export const paymentService = {
       throw new Error("Unauthorized: Fee does not belong to your school")
     }
 
-    return await prisma.monthlyFee.update({
+    const updated = await prisma.monthlyFee.update({
       where: { id },
       data: { amount }
     })
+
+    if (scheduleFees && scheduleFees.length > 0) {
+      await this.setScheduleFees(schoolId, fee.year, fee.month, scheduleFees)
+    }
+
+    return updated
   },
 
   /**
@@ -352,6 +427,15 @@ export const paymentService = {
       where: { schoolId }
     })
 
+    // Get all per-class fees for the school
+    const scheduleFees = await prisma.scheduleFee.findMany({
+      where: { schoolId }
+    })
+    const scheduleFeeMap = new Map<string, number>()
+    scheduleFees.forEach((sf) => {
+      scheduleFeeMap.set(`${sf.year}-${sf.month}-${sf.scheduleId}`, Number(sf.amount))
+    })
+
     // Create a map of frequency rates by month/year/frequency
     const frequencyRateMap = new Map<string, number>()
     frequencyRates.forEach((rate) => {
@@ -360,7 +444,7 @@ export const paymentService = {
     })
 
     // Calculate monthly fee for student based on enrollments and historical frequency
-    // Priority: 1. Custom fee (monthlyFee) 2. Frequency rate 3. General fee
+    // Priority: 1. Custom fee (monthlyFee) 2. Class fee 3. Frequency rate 4. General fee
     const calculateMonthlyFeeForStudent = (year: number, month: number): number => {
       let totalFee = 0
       let hasAnyCustomFee = false
@@ -393,18 +477,26 @@ export const paymentService = {
           totalFee += customFee
           hasAnyCustomFee = true
         } else {
-          // Priority 2: Frequency rate based on weekly frequency
-          const frequencyKey = `${year}-${month}-${weeklyFrequency}`
-          const frequencyRate = frequencyRateMap.get(frequencyKey)
-          
-          if (frequencyRate) {
-            totalFee += frequencyRate
+          // Priority 2: Fee configured for this class in this month
+          const classFee = scheduleFeeMap.get(`${year}-${month}-${enrollment.scheduleId}`)
+
+          if (classFee) {
+            totalFee += classFee
             hasAnyCustomFee = true
+          } else {
+            // Priority 3: Frequency rate based on weekly frequency
+            const frequencyKey = `${year}-${month}-${weeklyFrequency}`
+            const frequencyRate = frequencyRateMap.get(frequencyKey)
+
+            if (frequencyRate) {
+              totalFee += frequencyRate
+              hasAnyCustomFee = true
+            }
           }
         }
       }
 
-      // Priority 3: General fee (if no custom fees or frequency rates)
+      // Priority 4: General fee (if no custom fees, class fees or frequency rates)
       if (!hasAnyCustomFee) {
         const generalFee = fees.find(f => f.year === year && f.month === month)
         if (generalFee) {
@@ -423,11 +515,12 @@ export const paymentService = {
       feeMap.set(key, feeAmount)
     })
 
-    // Also add frequency rates to fee map for months that don't have general fees
-    frequencyRates.forEach((rate) => {
-      const key = `${rate.year}-${rate.month}`
+    // Also add frequency rates and class fees to fee map for months that don't have general fees
+    const extraMonths = [...frequencyRates, ...scheduleFees]
+    extraMonths.forEach((item) => {
+      const key = `${item.year}-${item.month}`
       if (!feeMap.has(key)) {
-        const feeAmount = calculateMonthlyFeeForStudent(rate.year, rate.month)
+        const feeAmount = calculateMonthlyFeeForStudent(item.year, item.month)
         if (feeAmount > 0) {
           feeMap.set(key, feeAmount)
         }

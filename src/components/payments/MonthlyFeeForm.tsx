@@ -1,7 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { DollarSign, Calendar, FileText, AlertCircle, Loader2, Copy } from "lucide-react"
+import { DollarSign, Calendar, FileText, AlertCircle, Loader2, Copy, Clock } from "lucide-react"
+
+interface ScheduleFeeValue {
+  scheduleId: string
+  amount: number
+}
 
 interface MonthlyFee {
   id: string
@@ -9,12 +14,38 @@ interface MonthlyFee {
   month: number
   year: number
   description?: string | null
+  scheduleFees?: ScheduleFeeValue[]
+}
+
+interface ScheduleOption {
+  id: string
+  name: string
+  startTime: string
+  endTime: string
+  daysOfWeek?: number[]
+  dayOfWeek: number
 }
 
 interface MonthlyFeeFormProps {
   fee?: MonthlyFee | null
   onSuccess: () => void
   onCancel: () => void
+}
+
+const DAY_SHORT = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
+
+const formatScheduleDays = (s: ScheduleOption) => {
+  const days = s.daysOfWeek && s.daysOfWeek.length > 0 ? s.daysOfWeek : [s.dayOfWeek]
+  return days.map((d) => DAY_SHORT[d]).join(", ")
+}
+
+// Convierte las cuotas por clase guardadas en el estado del formulario (texto por clase)
+const toInputMap = (values?: ScheduleFeeValue[]) => {
+  const map: Record<string, string> = {}
+  values?.forEach((v) => {
+    map[v.scheduleId] = String(v.amount)
+  })
+  return map
 }
 
 export default function MonthlyFeeForm({ fee, onSuccess, onCancel }: MonthlyFeeFormProps) {
@@ -26,12 +57,29 @@ export default function MonthlyFeeForm({ fee, onSuccess, onCancel }: MonthlyFeeF
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lastFee, setLastFee] = useState<MonthlyFee | null>(null)
+  const [schedules, setSchedules] = useState<ScheduleOption[]>([])
+  const [scheduleAmounts, setScheduleAmounts] = useState<Record<string, string>>(
+    toInputMap(fee?.scheduleFees)
+  )
 
   useEffect(() => {
     if (!fee) {
       fetchLastFee()
     }
+    fetchSchedules()
   }, [])
+
+  const fetchSchedules = async () => {
+    try {
+      const response = await fetch('/api/schedules')
+      if (response.ok) {
+        const data: ScheduleOption[] = await response.json()
+        setSchedules([...data].sort((a, b) => a.startTime.localeCompare(b.startTime)))
+      }
+    } catch (err) {
+      console.error('Error fetching schedules:', err)
+    }
+  }
 
   const fetchLastFee = async () => {
     try {
@@ -56,7 +104,24 @@ export default function MonthlyFeeForm({ fee, onSuccess, onCancel }: MonthlyFeeF
     if (lastFee) {
       setAmount(lastFee.amount.toString())
       setDescription(lastFee.description || "")
+      setScheduleAmounts(toInputMap(lastFee.scheduleFees))
     }
+  }
+
+  const handleScheduleAmountChange = (scheduleId: string, value: string) => {
+    if (value === "" || /^\d*\.?\d{0,2}$/.test(value)) {
+      setScheduleAmounts((prev) => ({ ...prev, [scheduleId]: value }))
+    }
+  }
+
+  // Cuotas por clase a enviar. Al editar se envían todas las clases: vacío = quitar la cuota propia.
+  const buildScheduleFees = () => {
+    const items = schedules.map((s) => {
+      const raw = scheduleAmounts[s.id]
+      const parsed = raw ? parseFloat(raw) : NaN
+      return { scheduleId: s.id, amount: parsed > 0 ? parsed : null }
+    })
+    return fee ? items : items.filter((i) => i.amount !== null)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -79,7 +144,8 @@ export default function MonthlyFeeForm({ fee, onSuccess, onCancel }: MonthlyFeeF
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            amount: parseFloat(amount)
+            amount: parseFloat(amount),
+            scheduleFees: buildScheduleFees()
           })
         })
 
@@ -98,7 +164,8 @@ export default function MonthlyFeeForm({ fee, onSuccess, onCancel }: MonthlyFeeF
             month,
             year,
             amount: parseFloat(amount),
-            description: description || null
+            description: description || null,
+            scheduleFees: buildScheduleFees()
           })
         })
 
@@ -208,7 +275,7 @@ export default function MonthlyFeeForm({ fee, onSuccess, onCancel }: MonthlyFeeF
       {/* Amount */}
       <div>
         <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">
-          Monto * <span className="text-gray-500 font-normal">(ARS)</span>
+          Cuota base * <span className="text-gray-500 font-normal">(ARS)</span>
         </label>
         <div className="relative">
           <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -226,9 +293,51 @@ export default function MonthlyFeeForm({ fee, onSuccess, onCancel }: MonthlyFeeF
           />
         </div>
         <p className="text-xs text-gray-500 mt-1">
-          Este será el valor de la cuota mensual para {fee ? `${monthNames[fee.month - 1]} ${fee.year}` : 'el período seleccionado'}
+          Valor de la cuota mensual para {fee ? `${monthNames[fee.month - 1]} ${fee.year}` : 'el período seleccionado'}.
+          Se usa en las clases que no tengan un precio propio.
         </p>
       </div>
+
+      {/* Per-class prices */}
+      {schedules.length > 0 && (
+        <div>
+          <div className="mb-2">
+            <p className="block text-sm font-medium text-gray-700">
+              Precio por clase <span className="text-gray-500 font-normal">(opcional)</span>
+            </p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Si das clases en lugares distintos o con precios diferentes, pon el precio de cada una.
+              Si lo dejas vacío, esa clase usa la cuota base.
+            </p>
+          </div>
+          <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
+            {schedules.map((schedule) => (
+              <div key={schedule.id} className="flex items-center justify-between gap-4 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{schedule.name}</p>
+                  <p className="text-xs text-gray-500 flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {formatScheduleDays(schedule)} · {schedule.startTime} - {schedule.endTime}
+                  </p>
+                </div>
+                <div className="relative w-40 flex-shrink-0">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={scheduleAmounts[schedule.id] ?? ""}
+                    onChange={(e) => handleScheduleAmountChange(schedule.id, e.target.value)}
+                    disabled={loading}
+                    placeholder={amount ? `${amount} (base)` : "Cuota base"}
+                    aria-label={`Precio de ${schedule.name}`}
+                    className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Description (only for new fees) */}
       {!fee && (

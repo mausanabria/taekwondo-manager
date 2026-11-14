@@ -1,5 +1,16 @@
 import { z } from "zod"
 
+// Cuota propia de una clase para el mes. amount = null elimina la cuota de esa clase
+// (la clase vuelve a usar la tarifa por frecuencia o la cuota base).
+export const scheduleFeeInputSchema = z.object({
+  scheduleId: z.string().min(1, "Schedule ID is required"),
+  amount: z.number()
+    .positive("Amount must be greater than 0")
+    .multipleOf(0.01, "Amount can have at most 2 decimal places")
+    .max(999999.99, "Amount cannot exceed 999,999.99")
+    .nullable()
+})
+
 // Validation schema for creating monthly fee
 export const createMonthlyFeeSchema = z.object({
   month: z.number()
@@ -21,7 +32,9 @@ export const createMonthlyFeeSchema = z.object({
     .max(500, "Description cannot exceed 500 characters")
     .optional()
     .nullable()
-    .or(z.literal(""))
+    .or(z.literal("")),
+
+  scheduleFees: z.array(scheduleFeeInputSchema).optional()
 })
 
 // Validation schema for updating monthly fee
@@ -29,7 +42,9 @@ export const updateMonthlyFeeSchema = z.object({
   amount: z.number()
     .positive("Amount must be greater than 0")
     .multipleOf(0.01, "Amount can have at most 2 decimal places")
-    .max(999999.99, "Amount cannot exceed 999,999.99")
+    .max(999999.99, "Amount cannot exceed 999,999.99"),
+
+  scheduleFees: z.array(scheduleFeeInputSchema).optional()
 })
 
 // Validation schema for recording payment
