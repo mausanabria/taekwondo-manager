@@ -19,7 +19,8 @@ import {
   Cake,
   GraduationCap,
   Shield,
-  Shirt
+  Shirt,
+  ChevronRight
 } from "lucide-react"
 
 export default function Sidebar() {
@@ -30,7 +31,7 @@ export default function Sidebar() {
 
   const navigation = [
     {
-      title: "General",
+      title: "GESTIÓN",
       items: [
         {
           name: "Dashboard",
@@ -57,6 +58,17 @@ export default function Sidebar() {
           show: true
         },
         {
+          name: "Danes",
+          href: "/danes",
+          icon: Shield,
+          show: true
+        }
+      ]
+    },
+    {
+      title: "FINANZAS",
+      items: [
+        {
           name: "Pagos",
           href: "/payments",
           icon: DollarSign,
@@ -67,17 +79,11 @@ export default function Sidebar() {
           href: "/apparel",
           icon: Shirt,
           show: true
-        },
-        {
-          name: "Danes",
-          href: "/danes",
-          icon: Shield,
-          show: true
         }
       ]
     },
     {
-      title: "Reportes",
+      title: "REPORTES",
       items: [
         {
           name: "Exámenes",
@@ -94,7 +100,7 @@ export default function Sidebar() {
       ]
     },
     {
-      title: "Sistema",
+      title: "SISTEMA",
       items: [
         {
           name: "Usuarios",
@@ -131,20 +137,20 @@ export default function Sidebar() {
       {/* Mobile Menu Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-white shadow-lg border border-gray-200 hover:bg-gray-50"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 rounded-xl bg-white shadow-md border border-slate-200 hover:bg-slate-50 transition-colors"
         aria-label="Toggle menu"
       >
         {isOpen ? (
-          <X className="h-6 w-6 text-gray-600" />
+          <X className="h-5 w-5 text-slate-700" />
         ) : (
-          <Menu className="h-6 w-6 text-gray-600" />
+          <Menu className="h-5 w-5 text-slate-700" />
         )}
       </button>
 
       {/* Overlay for mobile */}
       {isOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
+          className="lg:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-30 transition-opacity"
           onClick={() => setIsOpen(false)}
         />
       )}
@@ -155,53 +161,32 @@ export default function Sidebar() {
           fixed top-0 left-0 z-40 h-screen transition-transform duration-300 ease-in-out
           ${isOpen ? "translate-x-0" : "-translate-x-full"}
           lg:translate-x-0 lg:static
-          w-64 bg-white border-r border-gray-200 shadow-lg lg:shadow-none
+          w-64 bg-white border-r border-slate-200/90 shadow-sm lg:shadow-none flex flex-col flex-shrink-0
         `}
       >
-        <div className="flex flex-col h-full">
-          {/* Logo */}
-          <div className="flex items-center justify-center h-16 px-4 border-b border-gray-200">
-            <Link
-              href="/dashboard"
-              className="flex items-center space-x-2"
-              onClick={() => setIsOpen(false)}
-            >
-              <span className="text-3xl">🥋</span>
-              <span className="text-lg font-bold text-gray-900">
-                Taekwondo
-              </span>
-            </Link>
+        {/* Brand / Logo */}
+        <div className="flex items-center gap-3 px-5 py-5 border-b border-slate-100">
+          <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center text-xl shadow-sm flex-shrink-0">
+            🥋
           </div>
-
-          {/* User Info */}
-          <div className="px-4 py-4 border-b border-gray-200">
-            <div className="flex items-center space-x-3">
-              <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
-                {session?.user?.name?.charAt(0).toUpperCase() || "U"}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {session?.user?.name || "Usuario"}
-                </p>
-                <p className="text-xs text-gray-500 truncate">
-                  {session?.user?.email}
-                </p>
-                {isAdmin && (
-                  <span className="inline-block mt-1 px-2 py-0.5 text-xs font-semibold bg-purple-100 text-purple-800 rounded">
-                    ADMIN
-                  </span>
-                )}
-              </div>
-            </div>
+          <div className="flex flex-col min-w-0">
+            <span className="text-[16px] font-bold text-slate-900 tracking-tight leading-tight">
+              TaekwondoApp
+            </span>
+            <span className="text-xs text-slate-400 font-medium">
+              Panel de Control
+            </span>
           </div>
+        </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 px-3 py-4 space-y-7 overflow-y-auto">
-            {navigation.map((section) => (
-              <div key={section.title} className="space-y-0.5">
-                <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-                  {section.title}
-                </p>
+        {/* Navigation List */}
+        <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
+          {navigation.map((section) => (
+            <div key={section.title} className="space-y-1">
+              <p className="px-3 text-[11px] font-bold text-slate-400 tracking-wider uppercase">
+                {section.title}
+              </p>
+              <div className="space-y-0.5 pt-1">
                 {section.items.map((item) => {
                   if (!item.show) return null
 
@@ -214,33 +199,55 @@ export default function Sidebar() {
                       href={item.href}
                       onClick={() => setIsOpen(false)}
                       className={`
-                        flex items-center space-x-2.5 px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors
+                        group flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-150
                         ${
                           active
-                            ? "bg-blue-50 text-blue-700 border border-blue-200"
-                            : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                            ? "bg-slate-900 text-white shadow-sm"
+                            : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/80"
                         }
                       `}
                     >
-                      <Icon className={`h-4 w-4 flex-shrink-0 ${active ? "text-blue-700" : "text-gray-400"}`} />
-                      <span>{item.name}</span>
+                      <Icon
+                        className={`h-5 w-5 flex-shrink-0 transition-colors ${
+                          active
+                            ? "text-white"
+                            : "text-slate-400 group-hover:text-slate-600"
+                        }`}
+                      />
+                      <span className="flex-1">{item.name}</span>
+                      {active && (
+                        <ChevronRight className="h-4 w-4 text-slate-400 ml-auto flex-shrink-0" />
+                      )}
                     </Link>
                   )
                 })}
               </div>
-            ))}
-          </nav>
+            </div>
+          ))}
+        </nav>
 
-          {/* Logout Button */}
-          <div className="px-3 py-4 border-t border-gray-200">
-            <button
-              onClick={handleSignOut}
-              className="flex items-center space-x-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-red-700 hover:bg-red-50 transition-colors"
-            >
-              <LogOut className="h-5 w-5 flex-shrink-0" />
-              <span>Cerrar Sesión</span>
-            </button>
+        {/* User & Sign Out section */}
+        <div className="p-3 border-t border-slate-100 bg-slate-50/50 mt-auto">
+          <div className="flex items-center gap-3 px-2 py-2 mb-1.5">
+            <div className="h-9 w-9 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-semibold flex-shrink-0 shadow-sm">
+              {session?.user?.name?.charAt(0).toUpperCase() || "U"}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-slate-900 truncate">
+                {session?.user?.name || "Usuario"}
+              </p>
+              <p className="text-[11px] text-slate-400 truncate">
+                {isAdmin ? "Administrador" : "Profesor"}
+              </p>
+            </div>
           </div>
+          <button
+            onClick={handleSignOut}
+            className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+          >
+            <LogOut className="h-4 w-4 flex-shrink-0" />
+            <span>Cerrar Sesión</span>
+          </button>
         </div>
       </aside>
     </>
